@@ -1,0 +1,14 @@
+<section class="page-hero"><div class="container"><p class="eyebrow">DOCUMENTATION / GETTING STARTED</p><h1>Make your first Nora request.</h1><p>A short, reproducible local setup for the Nora source tree. Requires PHP 8.2 or newer and Composer.</p></div></section>
+<section class="section"><div class="container article-layout"><article class="prose">
+    <h2>1. Install dependencies</h2><p>From the Nora repository root, install the declared development dependencies:</p><pre><code>composer install</code></pre>
+    <h2>2. Generate a starter project</h2><p>The built-in generator creates a small project structure and a working HTTP entry point:</p><pre><code>php bin/nora new hello-nora
+cd hello-nora
+copy .env.example .env
+composer install
+php bin/nora serve</code></pre><p>On PowerShell, <code>Copy-Item .env.example .env</code> can be used instead of <code>copy</code>. The development server binds to <code>127.0.0.1:8000</code> by default.</p>
+    <h2>3. Open the application</h2><p>Visit <code>http://127.0.0.1:8000</code>. The generated app boots its configuration, registers routes, and responds through Nora's HTTP request lifecycle.</p>
+    <h2>4. Add a route</h2><p>Routes are registered on the application and return a Nora response:</p><pre><code>$app-&gt;route('GET', '/hello', static function (): Response {
+    return Response::text('Hello from Nora.');
+});</code></pre>
+    <h2>Next steps</h2><p>Read the <a href="/docs">documentation index</a> and <a href="/architecture">request lifecycle overview</a>. Database migrations require a dedicated database; don't point test or development migrations at production data.</p>
+</article><aside class="article-aside"><strong>Requirements</strong><span>PHP 8.2+</span><span>Composer</span><span>PDO driver as needed</span><hr><strong>Current maturity</strong><span>Core: implemented</span><span>Reactive UI: experimental</span><span>License: decision pending</span><a href="/roadmap">See roadmap →</a></aside></div></section>

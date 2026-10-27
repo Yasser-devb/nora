@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible defect in Nora.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security-sensitive issues, do not use this public form. Follow [SECURITY.md](https://github.com/Yasser-devb/nora/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Nora version or commit
+      description: Include the version/commit and relevant PHP version.
+      placeholder: "development commit, PHP 8.2"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, PHP version, relevant extensions, database/driver if applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest steps or code that reproduce the issue. Remove secrets and personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Relevant checks
+      description: Include commands/output or explain which checks were not run.
+    validations:
+      required: false

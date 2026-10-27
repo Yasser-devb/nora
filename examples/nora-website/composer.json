@@ -1,0 +1,26 @@
+{
+  "name": "morave/nora-website",
+  "description": "The Nora Framework website, built with Nora itself",
+  "type": "project",
+  "license": "proprietary",
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../..",
+      "options": {
+        "symlink": true
+      }
+    }
+  ],
+  "require": {
+    "morave/nora": "dev-main"
+  },
+  "autoload": {
+    "psr-4": {
+      "NoraWebsite\\": "src/"
+    }
+  },
+  "config": {
+    "sort-packages": true
+  }
+}

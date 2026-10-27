@@ -1,0 +1,71 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "e462e40f2d2d0546ea0f74e721108b48",
+    "packages": [
+        {
+            "name": "morave/nora",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../..",
+                "reference": "015e605862e950b2b03d80371e0ce9c3886e9f20"
+            },
+            "require": {
+                "ext-filter": "*",
+                "ext-json": "*",
+                "ext-pdo": "*",
+                "ext-pdo_mysql": "*",
+                "ext-session": "*",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^11.5"
+            },
+            "bin": [
+                "bin/nora"
+            ],
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Nora\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Nora\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "test:unit": [
+                    "phpunit --testsuite Unit"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Independent modular PHP framework created in Morocco by Morave Technologies",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": {
+        "morave/nora": 20
+    },
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {},
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
+}

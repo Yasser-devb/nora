@@ -1,0 +1,19 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+    <div class="container header-inner">
+        <a class="brand" href="/" aria-label="Nora Framework home"><span class="brand-mark" aria-hidden="true">N</span><span>Nora<span class="brand-light"> Framework</span></span></a>
+        <details class="mobile-menu">
+            <summary aria-label="Toggle navigation"><span></span><span></span><span></span></summary>
+            <nav aria-label="Main navigation">
+                <a href="/features">Features</a><a href="/docs">Docs</a><a href="/architecture">Architecture</a>
+                <a href="/playground">Playground <span class="experimental-tag">Experimental</span></a>
+                <a href="/community">Community</a><a class="nav-cta" href="/docs/getting-started">Get started <span aria-hidden="true">→</span></a>
+            </nav>
+        </details>
+        <nav class="desktop-nav" aria-label="Main navigation">
+            <a href="/features">Features</a><a href="/docs">Docs</a><a href="/architecture">Architecture</a>
+            <a href="/playground">Playground <span class="experimental-tag">Experimental</span></a>
+            <a href="/community">Community</a><a class="nav-cta" href="/docs/getting-started">Get started <span aria-hidden="true">→</span></a>
+        </nav>
+    </div>
+</header>

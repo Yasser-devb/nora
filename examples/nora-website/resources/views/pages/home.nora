@@ -1,0 +1,66 @@
+<section class="hero">
+    <div class="container hero-grid">
+        <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow-dot"></span> INDEPENDENT PHP FRAMEWORK · MADE IN MOROCCO</p>
+            <h1>PHP first.<br><span>Reactive by design.</span></h1>
+            <p class="hero-lede">Build the application in PHP. Nora's experimental reactive runtime connects registered server actions to rendered UI—without asking you to hand-manage a frontend island for every interaction.</p>
+            <div class="hero-actions"><a class="button button-primary" href="/docs/getting-started">Start with PHP <span aria-hidden="true">→</span></a><a class="button button-quiet" href="#live-demo">See it update <span aria-hidden="true">↓</span></a></div>
+            <div class="hero-meta"><span><i class="status-dot"></i> PHP 8.2+</span><span>·</span><span>Composer</span><span>·</span><span>Reactive UI is experimental</span></div>
+        </div>
+        <section class="code-window hero-demo" id="live-demo" aria-labelledby="demo-heading">
+            <div class="window-bar"><span></span><span></span><span></span><small>HomePage.php <b class="window-experimental">EXPERIMENTAL</b></small></div>
+            <div class="demo-code">
+                <p class="demo-code-label">A PHP action, registered on the server</p>
+                <pre><code><span class="code-purple">'home-increment'</span> =&gt; ReactiveAction::<span class="code-blue">publicAction</span>(
+    [],
+    <span class="code-purple">static fn</span> (<span class="code-blue">array</span> $state): <span class="code-blue">array</span> =&gt; [
+        ...$state,
+        <span class="code-green">'count'</span> =&gt; $state[<span class="code-green">'count'</span>] + <span class="code-orange">1</span>,
+    ],
+),</code></pre>
+            </div>
+            <div class="demo-counter">
+                <div class="demo-counter-title"><div><p class="eyebrow">LIVE SERVER-RENDERED STATE</p><h2 id="demo-heading">A counter, handled by PHP</h2></div><span class="demo-state"><i></i> Session page</span></div>
+                <div class="demo-counter-controls">
+                    <output data-nora-home-count aria-label="Live counter value">{{ count }}</output>
+                    <div class="demo-buttons"><button class="button button-primary" type="button" data-nora-action="home-increment" data-nora-args="{}" aria-label="Increment live counter">+ Increment</button><button class="button button-quiet" type="button" data-nora-action="home-reset" data-nora-args="{}">Reset</button></div>
+                </div>
+                <p class="demo-result"><span aria-hidden="true">↳</span> Registered PHP action <span class="demo-action-name">home-increment</span> updates this value without a page reload.</p>
+            </div>
+            <div class="demo-feedback" data-nora-status role="status" aria-live="polite"></div>
+        </section>
+    </div>
+</section>
+
+<section class="trust-strip"><div class="container trust-inner"><span>FRAMEWORK BUILDING BLOCKS</span><div><b>Routing &amp; middleware</b><i></i><b>Request lifecycle</b><i></i><b>Escaped templates</b><i></i><b>Validation</b></div></div></section>
+
+<section class="section workflow-section">
+    <div class="container">
+        <div class="section-heading"><p class="eyebrow">A PHP-FIRST WORKFLOW</p><h2>Server logic stays in the lead.</h2><p>Start with familiar application code. Nora handles the HTTP round-trip, then its experimental runtime applies the server-rendered update where it belongs.</p></div>
+        <div class="workflow-grid">
+            <article class="workflow-step"><span class="workflow-number">01</span><div><span class="workflow-icon icon-purple">⌘</span><h3>Define the behavior in PHP</h3><p>Register a named action, validate its arguments, set an explicit authorization policy, and return the next state.</p></div></article>
+            <article class="workflow-step"><span class="workflow-number">02</span><div><span class="workflow-icon icon-blue">↔</span><h3>Nora handles the request</h3><p>The framework checks the session-owned page, CSRF token, origin, action, arguments, authorization, and revision before applying the transition.</p></div></article>
+            <article class="workflow-step"><span class="workflow-number">03</span><div><span class="workflow-icon icon-orange">◉</span><h3>The relevant UI updates</h3><p>Nora renders the updated component on the server. Its runtime reconciles that response in place—no full-page navigation for this tested interaction.</p></div></article>
+        </div>
+        <div class="workflow-note"><span class="status status-experimental">Experimental</span><p>This is a small single-page-component prototype—not a stable reactive API. Forms, client-side navigation, nested components, and shared state are not implemented.</p><a href="/playground">Explore prototype limits <span aria-hidden="true">→</span></a></div>
+    </div>
+</section>
+
+<section class="section section-intro">
+    <div class="container">
+        <div class="section-heading"><p class="eyebrow">CAPABILITIES, AS THEY EXIST</p><h2>A foundation you can inspect.</h2><p>No competitor scorecards or roadmap features presented as shipped. Just the pieces present in Nora today, with their maturity called out.</p></div>
+        <div class="capability-table" role="table" aria-label="Nora capability status">
+            <div class="capability-row capability-head" role="row"><span role="columnheader">Capability</span><span role="columnheader">Status</span><span role="columnheader">What is verified</span></div>
+            <div class="capability-row" role="row"><strong role="cell">HTTP application lifecycle</strong><span role="cell" class="status status-implemented">Implemented</span><span role="cell">Bootstrap, routing, middleware, request and response handling.</span></div>
+            <div class="capability-row" role="row"><strong role="cell">Validation &amp; escaped views</strong><span role="cell" class="status status-implemented">Implemented</span><span role="cell">Server-side rules and templates with escaped interpolation.</span></div>
+            <div class="capability-row" role="row"><strong role="cell">PDO &amp; migrations</strong><span role="cell" class="status status-implemented">Implemented</span><span role="cell">Query helpers and migration tooling; live MySQL integration remains unverified here.</span></div>
+            <div class="capability-row" role="row"><strong role="cell">Server-rendered reactive UI</strong><span role="cell" class="status status-experimental">Experimental</span><span role="cell">One session-owned component with explicit, validated server actions.</span></div>
+            <div class="capability-row" role="row"><strong role="cell">Reactive forms &amp; navigation</strong><span role="cell" class="status status-planned">Not implemented</span><span role="cell">Not part of the current prototype.</span></div>
+        </div>
+        <div class="capability-link"><a class="text-link" href="/features">Read the full feature status <span aria-hidden="true">→</span></a></div>
+    </div>
+</section>
+
+<section class="section section-dark"><div class="container split-section"><div><p class="eyebrow eyebrow-light">BUILT IN MOROCCO</p><h2>Moroccan origin.<br>Independent core.</h2></div><div><p>Nora is developed in Morocco by Morave Technologies. Its framework APIs are Nora's own; Laravel and Symfony are not underlying frameworks. The project is still in development, and its license decision remains pending maintainer approval.</p><a class="text-link" href="/community">How community contributions work <span aria-hidden="true">→</span></a></div></div></section>
+
+<section class="section"><div class="container cta-panel"><div><p class="eyebrow">FOLLOW A REAL REQUEST</p><h2>Start with a route. Explore the prototype.</h2><p>Get a Nora app running, inspect its architecture, then try the server-rendered demo.</p></div><div class="cta-buttons"><a class="button button-primary" href="/docs/getting-started">Read the quick start <span aria-hidden="true">→</span></a><a class="button button-outline" href="/playground">Open the reactive playground</a></div></div></section>

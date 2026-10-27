@@ -1,0 +1,43 @@
+# Composer and JavaScript dependencies
+/vendor/
+/node_modules/
+**/vendor/
+**/node_modules/
+
+# Local environment files; keep the documented examples
+/.env
+/.env.*
+!/.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Test, coverage, and browser-run output
+/.phpunit.cache/
+**/.phpunit.cache/
+/coverage/
+**/coverage/
+/playwright-report/
+**/playwright-report/
+/test-results/
+**/test-results/
+
+# Logs, editor/OS files, and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local-only data and database dumps
+/private-data/
+**/private-data/
+/db-dumps/
+**/db-dumps/
+*.dump
+*.sql.gz
+*.sqlite
+*.sqlite3

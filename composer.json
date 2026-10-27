@@ -1,0 +1,37 @@
+{
+  "name": "morave/nora",
+  "description": "Independent modular PHP framework created in Morocco by Morave Technologies",
+  "type": "library",
+  "license": "proprietary",
+  "require": {
+    "php": "^8.2",
+    "ext-filter": "*",
+    "ext-json": "*",
+    "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "ext-session": "*"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^11.5"
+  },
+  "autoload": {
+    "psr-4": {
+      "Nora\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Nora\\Tests\\": "tests/"
+    }
+  },
+  "bin": [
+    "bin/nora"
+  ],
+  "scripts": {
+    "test": "phpunit",
+    "test:unit": "phpunit --testsuite Unit"
+  },
+  "config": {
+    "sort-packages": true
+  }
+}

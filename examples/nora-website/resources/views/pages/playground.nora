@@ -1,0 +1,27 @@
+<div class="playground-wrap">
+    <section class="playground-intro"><p class="eyebrow">LIVE FRAMEWORK EXAMPLE · EXPERIMENTAL API</p><h1>One PHP action.<br><span>A live page update.</span></h1><p>This demo is rendered by a Nora component. Buttons call explicitly registered server actions; the PHP response updates both displays without a full-page navigation.</p><div class="status status-experimental">Experimental — not a stable public API</div></section>
+    <div class="playground-surface">
+        <div class="tab-list" role="tablist" aria-label="Playground examples">
+            <button type="button" role="tab" data-nora-action="select-tab" data-nora-args="{&quot;tab&quot;:&quot;counter&quot;}" aria-selected="{{ counter_selected }}" aria-controls="counter-panel" class="tab-button {{ counter_tab_class }}">Reactive counter</button>
+            <button type="button" role="tab" data-nora-action="select-tab" data-nora-args="{&quot;tab&quot;:&quot;validation&quot;}" aria-selected="{{ validation_selected }}" aria-controls="validation-panel" class="tab-button {{ validation_tab_class }}">Validation &amp; permissions</button>
+        </div>
+        <section id="counter-panel" role="tabpanel" aria-hidden="{{ counter_panel_hidden }}" class="playground-panel">
+            <div class="counter-heading"><div><p class="eyebrow">SERVER-OWNED COMPONENT STATE</p><h2>Update the counter</h2></div><span class="state-chip"><i></i> Session page state</span></div>
+            <div class="counter-layout">
+                <div class="counter-card" data-nora-key="counter-primary"><span>Primary display</span><output aria-label="Primary counter value">{{ count }}</output><div class="counter-controls"><button type="button" class="button button-primary" data-nora-action="increment" data-nora-args="{&quot;amount&quot;:1}" aria-label="Increment counter">+ Increment</button><button type="button" class="button button-outline" data-nora-action="decrement" data-nora-args="{&quot;amount&quot;:1}">− Decrement</button><button type="button" class="button button-quiet" data-nora-action="reset" data-nora-args="{}">Reset</button></div></div>
+                <div class="counter-card counter-card-secondary" data-nora-key="counter-coordinated"><span>Coordinated display</span><output aria-label="Coordinated counter value">{{ count }}</output><p>Both values come from the same server-rendered component state.</p></div>
+            </div>
+            <p class="interaction-note"><span aria-hidden="true">↗</span> Press a button: Nora sends a POST action and reconciles the returned HTML in place.</p>
+        </section>
+        <section id="validation-panel" role="tabpanel" aria-hidden="{{ validation_panel_hidden }}" class="playground-panel">
+            <p class="eyebrow">SERVER-SIDE CHECKS</p><h2>Actions need permission and valid arguments.</h2><div class="demo-checks">
+                <div><span class="check-icon">✓</span><div><strong>Explicitly public action</strong><p>Increment and tab actions opt in with a public-to-page-holder policy.</p></div></div>
+                <div><span class="check-icon">✓</span><div><strong>Argument validation</strong><p>Counter increments accept integer amounts from 1 through 5.</p><button type="button" class="text-button" data-nora-action="increment" data-nora-args="{&quot;amount&quot;:99}">Send an invalid amount</button></div></div>
+                <div><span class="check-icon">✓</span><div><strong>Authorization denial</strong><p>The protected demo action has an explicit denying policy and cannot change state.</p><button type="button" class="text-button" data-nora-action="protected-demo" data-nora-args="{}">Try protected action</button></div></div>
+            </div>
+            <p class="form-disclaimer">Reactive forms and field-level errors are not implemented in this prototype.</p>
+        </section>
+        <div class="playground-status" data-nora-status role="status" aria-live="polite"></div>
+    </div>
+    <div class="playground-footnote"><span>Requests include framework CSRF and same-origin protections.</span><a href="/architecture">Understand the boundaries →</a></div>
+</div>

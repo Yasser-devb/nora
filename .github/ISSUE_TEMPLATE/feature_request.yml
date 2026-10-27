@@ -1,0 +1,34 @@
+name: Feature proposal
+description: Propose a user need and discuss a possible improvement.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or user need
+      description: What user problem would this solve? Avoid prescribing an implementation too early.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable behavior and a practical example.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and trade-offs
+      description: Mention existing Nora APIs, workarounds, compatibility concerns, or maintenance costs.
+    validations:
+      required: false
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Project boundaries
+      options:
+        - label: I considered the impact on backward compatibility.
+          required: false
+        - label: I considered security and maintenance implications.
+          required: false

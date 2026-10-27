@@ -1,0 +1,8 @@
+<section class="page-hero"><div class="container"><p class="eyebrow">DOCUMENTATION</p><h1>Learn Nora by following the code.</h1><p>Practical entry points and current API notes for the framework as it exists today.</p></div></section>
+<section class="section"><div class="container doc-grid">
+    <a class="doc-card" href="/docs/getting-started"><span class="doc-number">01</span><h2>Getting started</h2><p>Install, scaffold, run, and add your first route.</p><span class="text-link">Open guide →</span></a>
+    <a class="doc-card" href="/architecture"><span class="doc-number">02</span><h2>Architecture</h2><p>Trace boot, middleware, routing, rendering, and response flow.</p><span class="text-link">Explore the flow →</span></a>
+    <a class="doc-card" href="/features"><span class="doc-number">03</span><h2>Feature status</h2><p>Separate implemented, experimental, and planned capabilities.</p><span class="text-link">Review maturity →</span></a>
+    <a class="doc-card" href="/playground"><span class="doc-number">04</span><h2>Reactive UI prototype</h2><p>Try a real PHP action round-trip. This interface is experimental.</p><span class="text-link">Open playground →</span></a>
+</div></section>
+<section class="section section-muted"><div class="container"><div class="section-heading"><p class="eyebrow">DOCUMENTATION LANGUAGES</p><h2>English first, more languages ahead.</h2><p>Professional English documentation is the current source of truth. French and Arabic documentation are roadmap goals; translations are not yet published.</p></div></div></section>
