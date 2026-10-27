@@ -1,21 +1,14 @@
-MIT License
+The copyright holder is now confirmed by the maintainer as **Morave Technologies**.
 
-Copyright (c) 2026 [MAINTAINER: confirm rights holder name]
+Please continue the Nora first-release preparation:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Replace `[MAINTAINER: confirm rights holder name]` in the root `LICENSE` with `Morave Technologies`, producing this exact notice:
+   `Copyright (c) 2026 Morave Technologies`
+2. Keep the standard MIT License text unchanged apart from the copyright notice.
+3. Search the repository for remaining maintainer-confirmation placeholders related to the copyright holder and report the results.
+4. Check the root `composer.json` still declares `"license": "MIT"`.
+5. Report the licensing metadata for the root framework, `extensions/vscode-nora`, and `examples/nora-website` separately. Do not silently change the extension's or website's license; identify any remaining scope inconsistencies for review.
+6. Run `composer validate --strict`, `composer run check`, and `git diff --check`.
+7. Review the final diff and preserve all unrelated existing work and assets.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Do not stage files, commit, push, create tags, publish to Packagist or the VS Code Marketplace, or rewrite Git history. Report the results and the remaining release blockers.
