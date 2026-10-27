@@ -23,10 +23,9 @@ These authorities are distinct:
 
 - **Copyright:** The actual copyright holder for each contribution is not
   established by this policy. Contributors do not assign their copyright here.
-- **Code permissions:** The eventual project license, once approved and
-  published, will define permissions for the covered code and its conditions.
-  MIT would generally allow license-compliant modified forks; it would not
-  require those forks to be merged upstream or remain open source.
+- **Code permissions:** Nora Framework's code is distributed under the
+  [MIT License](LICENSE). It permits license-compliant modified forks; it does
+  not require those forks to be merged upstream or remain open source.
 - **Repository administration:** GitHub role and ruleset settings control
   access to the official repository. They are not granted by a code license.
 - **Official changes and releases:** Only authorized maintainers can decide
@@ -102,8 +101,9 @@ project has the capacity to sustain it.
 
 For each release, maintainers should:
 
-1. Confirm the selected license and contributor terms are published.
-   Confirm the rights holder is authorized to license the project code.
+1. Confirm the [MIT License](LICENSE) is included in the release and the
+   copyright-holder placeholder in its notice has been replaced with the
+   maintainer-confirmed rights holder name.
 2. Update `CHANGELOG.md` with user-visible changes, compatibility impact, and
    upgrade notes.
 3. Run Composer validation, the full test suite, PHP syntax checks, and any

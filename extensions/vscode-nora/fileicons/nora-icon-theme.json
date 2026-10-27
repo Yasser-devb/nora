@@ -1,0 +1,13 @@
+{
+  "iconDefinitions": {
+    "nora-template-file": {
+      "iconPath": "../images/nora-extension-icon.png"
+    }
+  },
+  "fileExtensions": {
+    "nora": "nora-template-file"
+  },
+  "languageIds": {
+    "nora-template": "nora-template-file"
+  }
+}

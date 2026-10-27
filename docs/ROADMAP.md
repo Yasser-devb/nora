@@ -25,24 +25,28 @@ reactive forms, navigation, or broad browser support described in the
 
 ## Readiness work before a public contribution launch
 
-- **Owner decision:** approve a project license, contributor terms, and
-  whether public contributions may be merged.
+- **License and contribution terms:** the framework code is licensed under
+  MIT. Confirm the legal rights-holder name in `LICENSE`, clarify the license
+  scope for the separate website example and VS Code extension, and review
+  contributor terms before a stable release.
 - **Trust and safety:** enable and test GitHub private vulnerability
   reporting; publish monitored security and conduct-reporting channels.
 - **Repository operations:** set branch protection and required CI checks,
   confirm issue/PR workflows and maintainer responsibilities, and make the
   repository public only when its permissions and terms are clear.
-- **Reproducibility:** publish an installation path that works for an outside
-  user without a local Composer path repository. Validate a release artifact
-  or a tagged Git dependency.
+- **Public distribution:** a Composer archive has been installed in a clean
+  temporary project and its PSR-4 autoload, bootstrap route, and Composer CLI
+  binary were smoke-tested. Packagist publication remains blocked on
+  confirmation of the license notice's rights-holder name, publisher/package
+  identity verification, an approved release tag, and a verified public
+  Packagist install.
 - **Confidence:** run the database integration suite against a real supported
   MySQL/MariaDB service in CI or an explicitly documented release check.
 - **Documentation:** keep tutorial examples executable, document compatibility
   and limitations, and prepare a review process for external changes.
 
-These are readiness requirements, not completed features. A public repository
-can be visible before the open-source contribution program is ready, but
-license and reporting limitations must remain prominent.
+These are readiness requirements, not completed features. License scope and
+reporting limitations must remain prominent until resolved.
 
 ## Near-term engineering priorities
 
@@ -64,11 +68,12 @@ license and reporting limitations must remain prominent.
 
 ## Stable-release direction
 
-The project may consider `1.0.0` only after a license and contributor policy
-are published, core APIs are reviewed for stability, a tested PHP/database
-matrix is documented, database integration is reproducible, security and
-installation limitations are transparent, user-facing docs are complete for
-the supported surface, and release/maintenance capacity exists. The
+The project may consider `1.0.0` only after the MIT license notice has a
+maintainer-confirmed rights-holder name, the license scope and contributor
+policy are reviewed, core APIs are reviewed for stability, a tested
+PHP/database matrix is documented, database integration is reproducible,
+security and installation limitations are transparent, user-facing docs are
+complete for the supported surface, and release/maintenance capacity exists. The
 [release policy](../RELEASE_POLICY.md) defines intended versioning and
 compatibility principles.
 

@@ -93,16 +93,18 @@
 - **Consequences:** Project identity is clear while claims remain evidence
   based; comparisons must be revisited rather than treated as exhaustive.
 
-## ADR-008: Require owner approval before open-source licensing
+## ADR-008: License Nora Framework code under MIT
 
-- **Status:** Pending owner decision
-- **Context:** Public reuse and third-party contributions require clear terms,
-  and the repository currently has no license file.
-- **Decision:** Recommend MIT for owner consideration, but do not publish a
-  license or change the package license declaration until the owner approves
-  the license and contribution terms.
-- **Consequences:** The repository cannot yet claim open-source reuse
-  permission or merge external contributions. See the
+- **Status:** Accepted (2026-10-27)
+- **Context:** Public reuse and third-party contributions require clear terms.
+- **Decision:** Nora Framework code is distributed under the MIT License,
+  recorded in the root [`LICENSE`](../LICENSE) and Composer metadata. The
+  copyright-holder field remains marked for maintainer confirmation because
+  repository metadata does not establish the legal rights holder.
+- **Consequences:** MIT governs covered code subject to its terms; it does not
+  grant permission to use Nora branding to imply endorsement. Confirm the
+  copyright-holder name and review the separate website/extension license
+  scope before a stable release. See the
   [positioning and licensing note](../docs/PROJECT_POSITIONING.md).
 
 ## ADR-009: Evolve public APIs with explicit version policy

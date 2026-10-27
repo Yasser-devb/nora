@@ -16,20 +16,21 @@ PHP conventions where appropriate. Nora is early-stage software, not a
 production-certified release. The project does not claim to be Morocco's first
 PHP framework; see the [scoped project comparison](docs/PROJECT_POSITIONING.md).
 
-**Open-source readiness is in progress.** No public reuse license has been
-approved or published, and contribution terms are not yet finalized. Do not
-assume that this repository is currently licensed for reuse or redistribution.
-The project recommends considering MIT, subject to owner approval; see
-[licensing and positioning](docs/PROJECT_POSITIONING.md).
+Nora Framework's code is distributed under the [MIT License](LICENSE).
+The copyright holder's name in the license notice still needs maintainer
+confirmation; Morave Technologies is identified as the project origin and
+maintainer, which does not by itself establish the legal copyright holder.
+See [trademark guidance](TRADEMARKS.md) for the separate use of Nora's name,
+logos, and branding.
 
 ## Project authority and community participation
 
 The project designates [`Yasser-devb/nora`](https://github.com/Yasser-devb/nora)
 as the official Nora repository. Morave Technologies is identified as the
-project origin and maintainer. Community members may discuss proposals and,
-once contribution terms are published, submit changes through forks and pull
-requests. A proposal is not an accepted Nora change until an authorized
-maintainer reviews and merges it.
+project origin and maintainer. Community members may discuss proposals and
+submit changes through forks and pull requests under the
+[contribution guidance](CONTRIBUTING.md). A proposal is not an accepted Nora
+change until an authorized maintainer reviews and merges it.
 
 Repository administration, branch permissions, and release publication remain
 with the authorized maintainer. Only releases published by the maintainer from
@@ -40,17 +41,60 @@ permits it; forks must not imply endorsement or official status. See
 [release policy](RELEASE_POLICY.md), and
 [trademark guidance](TRADEMARKS.md).
 
-No license choice is final: MIT is only a recommendation pending confirmation
-that the rights holder may license the code and explicit owner approval. The
-project's origin statement does not by itself establish the legal copyright
-holder. No CLA, copyright assignment, or transfer of contributor rights is
-introduced.
+The MIT license applies to the covered code and does not transfer copyright
+ownership. No CLA or copyright assignment is introduced.
 
 ## Requirements and installation
 
 - PHP 8.2+ (the current CI matrix tests PHP 8.2 and 8.3)
 - Composer 2
 - `PDO` and `pdo_mysql` for the supported MySQL/MariaDB database baseline
+
+The Composer package is named `morave/nora` in the repository metadata and
+the code is licensed under [MIT](LICENSE). Packagist currently does not return
+a published package for that name, so `composer require morave/nora` is **not
+yet a verified public installation path**. The intended command after a
+release has been published and verified on Packagist is:
+
+```powershell
+composer require morave/nora
+```
+
+For source checkout testing only, an authorized user can configure Composer
+to use the Git repository directly:
+
+```powershell
+composer config repositories.nora vcs https://github.com/Yasser-devb/nora.git
+composer require morave/nora:dev-main
+```
+
+This installs the current development branch, not a stable Packagist release.
+The MIT license terms apply; see [LICENSE](LICENSE).
+
+The package maps `Nora\` to `src/` and registers `bin/nora` as a Composer
+binary. A consuming project can bootstrap the framework with its own
+`vendor/autoload.php`:
+
+```php
+<?php
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+use Nora\Core\ApplicationBootstrap;
+
+(new ApplicationBootstrap())->boot(dirname(__DIR__))->run();
+```
+
+The application root may contain `routes.php` or `src/routes.php`,
+`config/app.php`, environment-specific config, and an optional `.env`.
+`ApplicationBootstrap` registers the route file and returns the application;
+`run()` creates the request from PHP globals and sends the response.
+
+Package archive exclusions omit tests, examples, the editor extension, local
+environment files, and development-only tooling while retaining framework
+source, the CLI, runtime assets, documentation, and `.env.example`. See the
+[Packagist release checklist](docs/PACKAGE_RELEASE.md) for the distinction
+between source checkout installation and a future public package release.
 
 ```powershell
 composer install
@@ -313,6 +357,9 @@ integration. Do not treat passing tests as a security certification.
 
 ## Project, governance, and documentation
 
+- [Nora Template VS Code extension](extensions/vscode-nora/README.md) —
+  local development and VSIX instructions; Marketplace publication is not
+  verified.
 - [Project positioning and scoped comparison](docs/PROJECT_POSITIONING.md)
 - [Roadmap](docs/ROADMAP.md)
 - [First application tutorial](docs/tutorials/FIRST_APPLICATION.md)
@@ -322,7 +369,7 @@ integration. Do not treat passing tests as a security certification.
 - [Security architecture](architecture/SECURITY_ARCHITECTURE.md)
 - [Contribution policy](CONTRIBUTING.md)
 - [Release policy and recommended GitHub protections](RELEASE_POLICY.md)
-- [Proposed name and branding policy](TRADEMARKS.md)
+- [Name and branding guidance](TRADEMARKS.md)
 - [Security reporting policy](SECURITY.md)
 
 The public GitHub repository metadata currently reports `main` as the default
@@ -334,6 +381,6 @@ for local versus hosted validation status.
 
 Documentation is maintained in English. French and Arabic translations are
 planned, not yet available. Public issue templates and a pull-request template
-are provided. Before inviting licensed code contributions, the owner must
-approve the license after confirming authority to grant it, publish the
-license and contribution terms, and configure private vulnerability reporting.
+are provided. Before a stable public release, the maintainer must confirm the
+legal rights-holder name in [LICENSE](LICENSE), review contribution terms,
+and verify a monitored private vulnerability-reporting channel.

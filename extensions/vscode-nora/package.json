@@ -1,0 +1,68 @@
+{
+  "name": "nora-template",
+  "displayName": "Nora Template Support",
+  "description": "HTML syntax highlighting and snippets for Nora .nora templates.",
+  "version": "0.1.1",
+  "publisher": "morave-technologies",
+  "license": "UNLICENSED",
+  "icon": "images/nora-extension-icon.png",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Yasser-devb/nora"
+  },
+  "keywords": [
+    "nora",
+    "template",
+    "html",
+    "syntax-highlighting"
+  ],
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "nora-template",
+        "aliases": [
+          "Nora Template",
+          "nora-template"
+        ],
+        "extensions": [
+          ".nora"
+        ],
+        "icon": {
+          "light": "./images/nora-extension-icon.png",
+          "dark": "./images/nora-extension-icon.png"
+        },
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "nora-template",
+        "scopeName": "text.html.nora",
+        "path": "./syntaxes/nora.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "nora-template",
+        "path": "./snippets/nora-template.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "nora-template-icons",
+        "label": "Nora Template Icons",
+        "path": "./fileicons/nora-icon-theme.json"
+      }
+    ]
+  },
+  "scripts": {
+    "validate": "node scripts/validate-extension.js"
+  }
+}

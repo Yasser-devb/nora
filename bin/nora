@@ -3,6 +3,22 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
+$autoloadCandidates = [
+    dirname(__DIR__) . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php',
+    dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'autoload.php',
+];
+$autoloadPath = null;
+foreach ($autoloadCandidates as $candidate) {
+    if (is_file($candidate)) {
+        $autoloadPath = $candidate;
+        break;
+    }
+}
+if ($autoloadPath === null) {
+    fwrite(STDERR, "nora: Composer autoloader not found. Run composer install in the project.\n");
+    exit(1);
+}
+
+require $autoloadPath;
 
 exit((new Nora\Console\ConsoleApplication(dirname(__DIR__)))->run(array_slice($argv, 1)));

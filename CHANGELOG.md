@@ -6,6 +6,8 @@ pre-release; there are no published versions.
 
 ## Unreleased
 
+- Ignore local key material and generated distribution archives, restrict CI
+  token permissions, and validate the Nora VS Code extension in CI.
 - Added application bootstrap, environment/config loading, HTTP lifecycle,
   structured error handling/logging, and request exception mapping.
 - Added validation, PDO query/transaction helpers, and migration tracking.
@@ -16,8 +18,9 @@ pre-release; there are no published versions.
   optional AI integration remain unverified or planned.
 - Added Moroccan project positioning, scoped comparison research, contribution
   governance, release policy, public issue/PR templates, tutorial, API
-  reference, and roadmap. The open-source license remains pending owner
-  approval.
+  reference, and roadmap. The framework code is now licensed under MIT; the
+  copyright-holder field in `LICENSE` remains marked for maintainer
+  confirmation.
 - Added an opt-in server-rendered reactive UI prototype with explicit actions,
   session-owned page state, CSRF/revision checks, and a delegated browser
   runtime that reconciles updates without full-page navigation. Generated
@@ -31,6 +34,11 @@ pre-release; there are no published versions.
 - Prepared proposed governance guidance distinguishing community pull
   requests from maintainer-approved changes and official releases, including
   branch/tag protection recommendations, a CODEOWNERS review route, and
-  trademark/branding guidance. Composer license metadata remains proprietary
-  pending confirmation of licensing authority and owner approval; no LICENSE
-  file was published and GitHub settings were not changed.
+  trademark/branding guidance. GitHub settings were not changed.
+- Prepared Composer archive metadata and development-file exclusions for
+  `morave/nora`, added package installation and Packagist release guidance,
+  and fixed the CLI autoloader path for Composer-installed use. A temporary
+  archive install, PSR-4/bootstrap smoke test, and installed CLI check passed.
+  Packagist distribution remains unavailable/unverified pending confirmation
+  of the license notice's rights-holder name, package identity verification,
+  and an actual release.

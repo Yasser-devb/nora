@@ -60,28 +60,14 @@ This review therefore does **not** claim that Nora is the first Moroccan PHP
 framework, the only independent one, or the most distinctive one. The list
 should be revisited before publishing any comparative or priority claim.
 
-## Licensing recommendation (not approved)
+## License
 
-The repository currently has no `LICENSE` file, and `composer.json` still
-declares `"license": "proprietary"`. Until the project owner approves and
-publishes a license, readers must not assume open-source reuse permission.
-
-For a reusable framework library, **MIT is recommended for the owner to
-consider**, not selected or finalized. Its permissive terms are familiar to
-many PHP users, make adoption and downstream reuse straightforward, and
-require preservation of the copyright and license notice. It does not require
-downstream modifications or applications to be released under the same
-license. This broad permission also means the project cannot require
-derivatives to remain open; the no-warranty terms and responsibility for
-third-party contributions should be understood. A copyleft license such as
-GPL would instead impose reciprocal distribution obligations and may better
-serve a different policy goal, at the cost of limiting some integrations.
-
-The authorized rights holder must confirm they may license the project code,
-then the project owner must explicitly approve the license and contribution
-terms before the project describes itself as licensed open source, accepts
-external code contributions for merging, or publishes a license file. This
-document and the package description do not grant rights.
+Nora Framework's code is distributed under the [MIT License](../LICENSE), and
+`composer.json` declares `"license": "MIT"`. The MIT terms permit use,
+modification, and redistribution subject to the license conditions and
+disclaimer. The copyright-holder field in the license notice remains marked
+for maintainer confirmation: project origin and maintenance metadata alone
+does not establish the legal copyright holder.
 
 Copyright, code permissions, repository administration, merge authority,
 release authority, and branding are separate matters. A code license grants
@@ -94,10 +80,10 @@ from creating and publishing modified forks. See
 [proposed name and branding guidance](../TRADEMARKS.md).
 
 The project's origin/maintainer statement does not establish the legal
-copyright holder for every file or contribution. Before approving a license,
-the owner should inventory authorship and third-party materials and confirm
-authority to grant the proposed terms. No contributor copyright assignment or
-CLA is being introduced by this recommendation.
+copyright holder for every file or contribution. Review authorship and
+third-party materials as part of release preparation. No contributor
+copyright assignment or CLA is introduced. See [trademark guidance](../TRADEMARKS.md)
+for the separate use of Nora's name and branding.
 
 ## Positioning guardrails
 

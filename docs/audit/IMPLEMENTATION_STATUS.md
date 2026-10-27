@@ -18,7 +18,7 @@
 | Nora website example | Implemented, tested locally | Standalone Nora app under `examples/nora-website`; ten content routes, native responsive navigation, escaped 404, safe branded exception responses, an interactive homepage counter, and a tested experimental playground. No deployment/public URL is claimed |
 | Architecture documentation | Implemented | Current component/flow docs; diagrams describe current behavior |
 | CI | Workflow locally configured; hosted execution blocked | Local workflow includes PHP tests, audits, browser tests, and an ephemeral MySQL 8.4 service. The local workflow is untracked; GitHub reports the remote repository is empty with no branches/workflows/runs |
-| Open-source governance | Partially prepared | Code of conduct, contribution/release policies, and GitHub issue/PR templates added; license, contributor terms, private security reporting, and branch protection need owner/platform setup |
+| Open-source governance | Partially prepared | MIT license is published; its copyright-holder placeholder needs maintainer confirmation. Private security reporting and branch protection need platform setup |
 | Project comparison | Scoped research documented | GitHub search surfaced Moroccan PHP community, integration package, and Laravel application examples; review is not exhaustive and supports no “first” claim |
 | AI integration | Planned | No provider/tool runtime exists |
 | Linux web-server deployment | Unverified | No Linux, Apache, or Nginx environment used |
@@ -46,23 +46,20 @@
   development server.
 - Local Markdown link verification: **PASS**, 30 Markdown files and 56 local
   links checked with no missing targets.
-- GitHub Actions: **BLOCKED / NOT RUN**. The workflow at
-  `.github/workflows/ci.yml` exists locally but `git ls-files` reports it is
-  untracked, and the local Git checkout has no commits; its `main` branch is
-  unborn. `git ls-remote --heads origin main` returned no refs. GitHub
-  repository metadata reports a public repository and `main` as the default
-  branch, but
-  the Actions API reports zero workflows and zero runs; retrieving the remote
-  `main` workflow file returned GitHub HTTP 409, "Git Repository is empty."
-  The remote repository therefore has no commit/tree in which a workflow can
-  be tracked or recognized. No hosted result can be claimed. The local
-  workflow now configures a disposable MySQL 8.4 service for the
-  `NORA_TEST_DSN` integration test, but that job is also **NOT RUN**.
-- This repository has no published license. MIT is a recommendation awaiting
-  the project owner's explicit approval; no license file has been published.
-- GitHub Actions, private vulnerability reporting, and branch protection have
-  not been enabled or verified through repository settings. Issue and pull
-  request templates, contribution guidance, and the security policy exist.
+- GitHub Actions: **NO PASSING HOSTED RUN VERIFIED**. The local
+  `.github/workflows/ci.yml` is tracked on `main`, and the repository has
+  published commits. At the latest Actions API check on 2026-10-27, the API
+  returned zero workflow records and zero runs; this does not establish why
+  they were unavailable, and no hosted result can be claimed. A prior check
+  had returned a failed CI run, but its job logs could not be retrieved, so
+  its underlying cause was not independently verified. The workflow configures
+  a disposable MySQL 8.4 service for `NORA_TEST_DSN`; hosted execution of that
+  job is not verified.
+- Nora Framework's code is distributed under MIT; the copyright-holder field
+  in `LICENSE` remains explicitly marked for maintainer confirmation.
+- Private vulnerability reporting and branch protection have not been
+  verified through repository settings. Issue and pull request templates,
+  contribution guidance, and the security policy exist.
 - Reactive UI support is experimental and unstable. The browser test exercises
   one Chromium version only. There are no independent nested components,
   cross-component state ownership, reactive forms, navigation, automatic
@@ -128,10 +125,9 @@
 - The framework has no independent security audit, account provider, general
   rate limiter, deployment hardening guide, or durable idempotency guarantee
   for external effects. Automated checks are not a security certification.
-- License: **BLOCKED / PENDING OWNER APPROVAL**. `composer.json` remains
-  `"license": "proprietary"` and no `LICENSE` file exists. Do not publish a
-  license or release without confirming rights-holder authority and obtaining
-  explicit owner approval.
+- License: Nora Framework's code is distributed under MIT. The copyright
+  holder field in `LICENSE` remains marked for maintainer confirmation before
+  a stable public release.
 - Private GitHub vulnerability reporting is **NOT VERIFIED**; no dedicated
   monitored contact is configured. Repository branch/tag protection and
   permission settings are also **NOT VERIFIED**.

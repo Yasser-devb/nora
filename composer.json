@@ -2,7 +2,21 @@
   "name": "morave/nora",
   "description": "Independent modular PHP framework created in Morocco by Morave Technologies",
   "type": "library",
-  "license": "proprietary",
+  "license": "MIT",
+  "homepage": "https://github.com/Yasser-devb/nora",
+  "keywords": [
+    "framework",
+    "http",
+    "morocco",
+    "mvc",
+    "nora",
+    "php",
+    "routing"
+  ],
+  "support": {
+    "issues": "https://github.com/Yasser-devb/nora/issues",
+    "source": "https://github.com/Yasser-devb/nora"
+  },
   "require": {
     "php": "^8.2",
     "ext-filter": "*",
@@ -29,7 +43,36 @@
   ],
   "scripts": {
     "test": "phpunit",
-    "test:unit": "phpunit --testsuite Unit"
+    "test:unit": "phpunit --testsuite Unit",
+    "check": [
+      "@composer validate --strict",
+      "@composer audit",
+      "@composer test -- --display-warnings"
+    ]
+  },
+  "archive": {
+    "exclude": [
+      "/.env",
+      "/.env.*",
+      "!/.env.example",
+      "/.github/**",
+      "/.phpunit.cache/**",
+      "/.vscode/**",
+      "/coverage/**",
+      "/examples/**",
+      "/extensions/**",
+      "/node_modules",
+      "/node_modules/",
+      "/node_modules/**",
+      "/playwright-report/**",
+      "/test-results/**",
+      "/tests/**",
+      "/vendor/**",
+      "/composer.lock",
+      "/package-lock.json",
+      "/package.json",
+      "/phpunit.xml"
+    ]
   },
   "config": {
     "sort-packages": true

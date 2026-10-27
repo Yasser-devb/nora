@@ -22,9 +22,8 @@ Commands and results:
 
 - [ ] I have the rights needed to propose these changes and identified any third-party material and its license.
 
-The project's reuse license and contribution terms are not yet approved or
-published. A pull request is a proposal, not acceptance or permission to
-redistribute project code. Do not submit material unless you have the rights
-to do so. No CLA or copyright assignment is currently required or introduced.
-Maintainers must resolve the project licensing status before merging an
-external code contribution.
+Nora Framework's code is distributed under the [MIT License](../LICENSE). A
+pull request is a proposal, not acceptance into the official project. Do not
+submit material unless you have the rights needed to contribute it and
+distribute it under the project's license. No CLA or copyright assignment is
+required or introduced.

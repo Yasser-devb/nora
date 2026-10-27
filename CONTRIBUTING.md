@@ -12,15 +12,16 @@ submission does not guarantee acceptance or merging. Public repository
 visibility or GitHub's fork feature does not itself grant copyright permission
 to use, modify, or redistribute the code.
 
-**No project reuse license has yet been approved or published.** `composer.json`
-currently identifies the package as proprietary. Until the authorized rights
-holder confirms they may license the project code, approves a license, and the
-project publishes it, do not assume there is permission to redistribute or
-use Nora code. The proposed MIT license is a recommendation only.
+Nora Framework's code is distributed under the [MIT License](LICENSE). Please
+preserve its required copyright and license notices. Contributors retain
+copyright in their contributions; by proposing a contribution, do not assume
+that you assign copyright or grant rights beyond those required to accept and
+distribute the contribution under the project's license. No CLA or copyright
+assignment is introduced.
 
-Once a project license and contribution terms are published, contributors
-must have the rights needed to submit their work and must respect that license
-and all third-party licenses. Identify copied or adapted material and its
+Contributors must have the rights needed to submit their work and ensure their
+contributions can be distributed under the project's MIT license and any
+applicable third-party licenses. Identify copied or adapted material and its
 license; do not submit material with incompatible terms or unclear
 provenance. The project is not introducing a CLA or copyright assignment.
 Contributors should not assume they transfer copyright by opening a pull

@@ -47,10 +47,10 @@ experimental; this website does not imply the framework is production-ready.
 The homepage also explains the request/action/render workflow and labels
 implemented, experimental, and planned capabilities separately.
 
-No contact form submits data, no authentication identity is assumed, and the
-license decision remains pending maintainer approval. Private GitHub
-vulnerability reporting availability and repository protection settings are
-not asserted as enabled.
+No contact form submits data and no authentication identity is assumed. The
+framework code is distributed under the root [MIT License](../../LICENSE).
+Private GitHub vulnerability reporting availability and repository protection
+settings are not asserted as enabled.
 
 ## Tests
 
