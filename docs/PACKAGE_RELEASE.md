@@ -11,13 +11,12 @@ that confirms there is no package record at that endpoint at the time checked,
 not that the name is reserved or guaranteed to be available.
 
 Nora Framework's code is distributed under the [MIT License](../LICENSE), and
-`composer.json` declares `"license": "MIT"`. The name in the license copyright
-notice is explicitly marked for maintainer confirmation: existing repository
-metadata identifies Morave Technologies as the project origin and maintainer,
-but does not establish the legal copyright holder. Confirm and replace that
-placeholder before a stable public release. The MIT license covers code; it
-does not itself grant permission to use Nora's name, logos, or branding to
-imply an official or endorsed release. See [TRADEMARKS.md](../TRADEMARKS.md).
+`composer.json` declares `"license": "MIT"`. The root license notice names
+Morave Technologies, as confirmed by the maintainer. The MIT license covers
+the framework code; it does not itself grant permission to use Nora's name,
+logos, or branding to imply an official or endorsed release. See
+[TRADEMARKS.md](../TRADEMARKS.md). The website example and VS Code extension
+have separate license declarations that require separate scope review.
 
 No Git tags currently exist. There is no release version to install or claim
 as published. The package has not been submitted to Packagist.
@@ -50,10 +49,11 @@ consumer install have both been verified.
 
 ## Prepare a release
 
-1. Review the license and third-party materials, confirm the legal rights
-   holder's name, and replace the explicitly marked placeholder in
-   [`LICENSE`](../LICENSE). The project has selected MIT; this is not a pending
-   license-choice decision.
+1. Review the MIT license and third-party materials; confirm the root
+   [`LICENSE`](../LICENSE) contains the maintainer-confirmed notice
+   `Copyright (c) 2026 Morave Technologies`. The website example and VS Code
+   extension use separate license declarations and must not be assumed to
+   inherit the root license.
 2. Verify that `morave/nora` can be claimed on Packagist and that the
    authorized maintainer controls the corresponding Packagist account. If it
    cannot be claimed, the owner must choose and verify another vendor name

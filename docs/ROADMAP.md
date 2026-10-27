@@ -26,9 +26,9 @@ reactive forms, navigation, or broad browser support described in the
 ## Readiness work before a public contribution launch
 
 - **License and contribution terms:** the framework code is licensed under
-  MIT. Confirm the legal rights-holder name in `LICENSE`, clarify the license
-  scope for the separate website example and VS Code extension, and review
-  contributor terms before a stable release.
+  MIT, with the copyright notice naming Morave Technologies as confirmed by
+  the maintainer. Clarify the license scope for the separate website example
+  and VS Code extension, and review contributor terms before a stable release.
 - **Trust and safety:** enable and test GitHub private vulnerability
   reporting; publish monitored security and conduct-reporting channels.
 - **Repository operations:** set branch protection and required CI checks,
@@ -37,9 +37,8 @@ reactive forms, navigation, or broad browser support described in the
 - **Public distribution:** a Composer archive has been installed in a clean
   temporary project and its PSR-4 autoload, bootstrap route, and Composer CLI
   binary were smoke-tested. Packagist publication remains blocked on
-  confirmation of the license notice's rights-holder name, publisher/package
-  identity verification, an approved release tag, and a verified public
-  Packagist install.
+  publisher/package identity verification, an approved release tag, and a
+  verified public Packagist install.
 - **Confidence:** run the database integration suite against a real supported
   MySQL/MariaDB service in CI or an explicitly documented release check.
 - **Documentation:** keep tutorial examples executable, document compatibility
@@ -68,8 +67,7 @@ reporting limitations must remain prominent until resolved.
 
 ## Stable-release direction
 
-The project may consider `1.0.0` only after the MIT license notice has a
-maintainer-confirmed rights-holder name, the license scope and contributor
+The project may consider `1.0.0` only after the license scope and contributor
 policy are reviewed, core APIs are reviewed for stability, a tested
 PHP/database matrix is documented, database integration is reproducible,
 security and installation limitations are transparent, user-facing docs are
@@ -96,3 +94,6 @@ assumption that every past minor release will receive fixes.
 Ideas in this section are planned possibilities, not commitments or current
 capabilities. Feature proposals should explain the user need, maintenance
 cost, compatibility impact, and security consequences.
+
+For evidence, dependencies, issue-sized work, and measurable acceptance
+criteria, see the [detailed implementation roadmap](ROADMAP_IMPLEMENTATION.md).

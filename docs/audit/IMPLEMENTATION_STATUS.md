@@ -17,8 +17,8 @@
 | Reactive UI prototype | Experimental, tested | Authorization callback omission denies by default; `ReactiveAction::publicAction()` is explicit public opt-in. PHP regressions verify missing/denied policies do not invoke transitions, authorized policy succeeds, and strict action/payload validation rejects forged input. Browser tests still cover the generated allow/deny/invalid-action flow. One page component only; no nested reactive components or independent shared-state protocol |
 | Nora website example | Implemented, tested locally | Standalone Nora app under `examples/nora-website`; ten content routes, native responsive navigation, escaped 404, safe branded exception responses, an interactive homepage counter, and a tested experimental playground. No deployment/public URL is claimed |
 | Architecture documentation | Implemented | Current component/flow docs; diagrams describe current behavior |
-| CI | Workflow locally configured; hosted execution blocked | Local workflow includes PHP tests, audits, browser tests, and an ephemeral MySQL 8.4 service. The local workflow is untracked; GitHub reports the remote repository is empty with no branches/workflows/runs |
-| Open-source governance | Partially prepared | MIT license is published; its copyright-holder placeholder needs maintainer confirmation. Private security reporting and branch protection need platform setup |
+| CI | Workflow tracked; hosted execution not verified | The workflow includes PHP tests, audits, browser tests, and an ephemeral MySQL 8.4 service. No hosted Actions run is verified by this status |
+| Open-source governance | Partially prepared | Framework code is MIT-licensed and the root copyright notice names Morave Technologies, as confirmed by the maintainer. The website example and VS Code extension have separate license declarations. Private security reporting and branch protection need platform setup |
 | Project comparison | Scoped research documented | GitHub search surfaced Moroccan PHP community, integration package, and Laravel application examples; review is not exhaustive and supports no “first” claim |
 | AI integration | Planned | No provider/tool runtime exists |
 | Linux web-server deployment | Unverified | No Linux, Apache, or Nginx environment used |
@@ -46,17 +46,15 @@
   development server.
 - Local Markdown link verification: **PASS**, 30 Markdown files and 56 local
   links checked with no missing targets.
-- GitHub Actions: **NO PASSING HOSTED RUN VERIFIED**. The local
-  `.github/workflows/ci.yml` is tracked on `main`, and the repository has
-  published commits. At the latest Actions API check on 2026-10-27, the API
-  returned zero workflow records and zero runs; this does not establish why
-  they were unavailable, and no hosted result can be claimed. A prior check
-  had returned a failed CI run, but its job logs could not be retrieved, so
-  its underlying cause was not independently verified. The workflow configures
-  a disposable MySQL 8.4 service for `NORA_TEST_DSN`; hosted execution of that
-  job is not verified.
-- Nora Framework's code is distributed under MIT; the copyright-holder field
-  in `LICENSE` remains explicitly marked for maintainer confirmation.
+- GitHub Actions: **NO PASSING HOSTED RUN VERIFIED IN THIS STATUS UPDATE**.
+  `.github/workflows/ci.yml` is tracked in the repository and configures PHP,
+  browser, extension-validation, audit, and disposable MySQL 8.4 checks. This
+  status does not establish whether the current hosted workflow has run or
+  passed; no hosted result should be inferred from local configuration.
+- Nora Framework's code is distributed under MIT; the root `LICENSE` notice
+  reads `Copyright (c) 2026 Morave Technologies`, as confirmed by the
+  maintainer. The website example and VS Code extension retain separate
+  license declarations pending a scope decision.
 - Private vulnerability reporting and branch protection have not been
   verified through repository settings. Issue and pull request templates,
   contribution guidance, and the security policy exist.
@@ -125,9 +123,10 @@
 - The framework has no independent security audit, account provider, general
   rate limiter, deployment hardening guide, or durable idempotency guarantee
   for external effects. Automated checks are not a security certification.
-- License: Nora Framework's code is distributed under MIT. The copyright
-  holder field in `LICENSE` remains marked for maintainer confirmation before
-  a stable public release.
+- License: Nora Framework's code is distributed under MIT, and the root
+  copyright notice names Morave Technologies as confirmed by the maintainer.
+  The website example and VS Code extension retain separate license
+  declarations that need independent scope review.
 - Private GitHub vulnerability reporting is **NOT VERIFIED**; no dedicated
   monitored contact is configured. Repository branch/tag protection and
   permission settings are also **NOT VERIFIED**.

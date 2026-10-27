@@ -102,8 +102,8 @@ project has the capacity to sustain it.
 For each release, maintainers should:
 
 1. Confirm the [MIT License](LICENSE) is included in the release and the
-   copyright-holder placeholder in its notice has been replaced with the
-   maintainer-confirmed rights holder name.
+   copyright notice reads `Copyright (c) 2026 Morave Technologies`, as
+   confirmed by the maintainer.
 2. Update `CHANGELOG.md` with user-visible changes, compatibility impact, and
    upgrade notes.
 3. Run Composer validation, the full test suite, PHP syntax checks, and any

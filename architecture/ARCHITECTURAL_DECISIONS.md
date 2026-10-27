@@ -99,13 +99,14 @@
 - **Context:** Public reuse and third-party contributions require clear terms.
 - **Decision:** Nora Framework code is distributed under the MIT License,
   recorded in the root [`LICENSE`](../LICENSE) and Composer metadata. The
-  copyright-holder field remains marked for maintainer confirmation because
-  repository metadata does not establish the legal rights holder.
+  copyright notice names Morave Technologies, as confirmed by the maintainer.
 - **Consequences:** MIT governs covered code subject to its terms; it does not
   grant permission to use Nora branding to imply endorsement. Confirm the
-  copyright-holder name and review the separate website/extension license
-  scope before a stable release. See the
+  separate website/extension license scope before a stable release. See the
   [positioning and licensing note](../docs/PROJECT_POSITIONING.md).
+- **Follow-up:** The maintainer later confirmed Morave Technologies as the
+  copyright notice name. The root notice was updated; the website and VS Code
+  extension license declarations remain separate and unchanged.
 
 ## ADR-009: Evolve public APIs with explicit version policy
 

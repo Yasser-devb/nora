@@ -17,11 +17,10 @@ production-certified release. The project does not claim to be Morocco's first
 PHP framework; see the [scoped project comparison](docs/PROJECT_POSITIONING.md).
 
 Nora Framework's code is distributed under the [MIT License](LICENSE).
-The copyright holder's name in the license notice still needs maintainer
-confirmation; Morave Technologies is identified as the project origin and
-maintainer, which does not by itself establish the legal copyright holder.
-See [trademark guidance](TRADEMARKS.md) for the separate use of Nora's name,
-logos, and branding.
+The copyright notice names **Morave Technologies**, as confirmed by the
+maintainer. The MIT license does not itself grant permission to use Nora's
+name, logos, or branding to imply endorsement; see
+[trademark guidance](TRADEMARKS.md).
 
 ## Project authority and community participation
 

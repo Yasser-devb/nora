@@ -63,11 +63,12 @@ should be revisited before publishing any comparative or priority claim.
 ## License
 
 Nora Framework's code is distributed under the [MIT License](../LICENSE), and
-`composer.json` declares `"license": "MIT"`. The MIT terms permit use,
+`composer.json` declares `"license": "MIT"`. The root license notice names
+Morave Technologies, as confirmed by the maintainer. The MIT terms permit use,
 modification, and redistribution subject to the license conditions and
-disclaimer. The copyright-holder field in the license notice remains marked
-for maintainer confirmation: project origin and maintenance metadata alone
-does not establish the legal copyright holder.
+disclaimer. This notice does not assert that every third-party contribution
+has the same copyright holder; contribution rights remain subject to the
+applicable terms.
 
 Copyright, code permissions, repository administration, merge authority,
 release authority, and branding are separate matters. A code license grants
@@ -79,11 +80,10 @@ from creating and publishing modified forks. See
 [release policy](../RELEASE_POLICY.md), and
 [proposed name and branding guidance](../TRADEMARKS.md).
 
-The project's origin/maintainer statement does not establish the legal
-copyright holder for every file or contribution. Review authorship and
-third-party materials as part of release preparation. No contributor
-copyright assignment or CLA is introduced. See [trademark guidance](../TRADEMARKS.md)
-for the separate use of Nora's name and branding.
+Review authorship and third-party materials as part of release preparation.
+No contributor copyright assignment or CLA is introduced. See
+[trademark guidance](../TRADEMARKS.md) for the separate use of Nora's name and
+branding.
 
 ## Positioning guardrails
 
