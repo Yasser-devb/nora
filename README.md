@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/nora-logo.png" alt="Nora Framework — PHP-first reactive framework" width="420">
+</p>
+
 # Nora Framework
 
 Nora is an independent, modular PHP framework created in Morocco by
