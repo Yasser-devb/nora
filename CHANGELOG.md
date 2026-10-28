@@ -10,8 +10,9 @@ All notable changes are recorded here. Follow the
   the table container.
 - Verification: `npm run test:browser` passed all four local Chromium
   scenarios, including 375px and 1280px viewport checks. The v0.2.0 hosted
-  workflow exposed this issue on Linux; the follow-up workflow result is
-  pending.
+  workflow exposed this issue on Linux. Follow-up GitHub Actions run
+  `40750716625` passed the package-consumer, PHP 8.2/8.3, and reactive-browser
+  jobs.
 
 ## v0.2.0 — 2026-10-28
 
