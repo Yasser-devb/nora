@@ -22,6 +22,8 @@ final class ReactiveEngine
 
     private const RUNTIME_PATH = '/_nora/runtime.js';
 
+    private const STYLESHEET_PATH = '/_nora/ui.css';
+
     private const MAX_PAGES_PER_SESSION = 32;
 
     private const PAGE_TTL_SECONDS = 1800;
@@ -33,6 +35,8 @@ final class ReactiveEngine
     private const MAX_RENDERED_BYTES = 262144;
 
     private const MAX_CHILDREN_PER_PAGE = 64;
+
+    private const MAX_COMPONENT_DEPTH = 32;
 
     /** @var array<string, ReactiveComponent|ReactiveNestedComponentInterface> */
     private array $components = [];
@@ -110,6 +114,7 @@ final class ReactiveEngine
 
         $application->prependMiddleware(new SessionMiddleware($this->session));
         $application->route('GET', self::RUNTIME_PATH, fn (): Response => $this->runtimeResponse());
+        $application->route('GET', self::STYLESHEET_PATH, fn (): Response => $this->stylesheetResponse());
         $application->route('POST', self::ACTION_PATH, fn (Request $request): Response => $this->dispatchAction($request));
         $this->installed = true;
     }
@@ -146,6 +151,7 @@ final class ReactiveEngine
             . '<meta name="nora-csrf" content="' . $csrfToken . '"><title>'
             . htmlspecialchars($documentTitle, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
             . '</title>'
+            . '<link rel="stylesheet" href="' . self::STYLESHEET_PATH . '">'
             . '<script defer src="' . self::RUNTIME_PATH . '"></script></head><body>'
             . $this->pageRoot($pageId, $revision, $content)
             . '</body></html>';
@@ -153,7 +159,7 @@ final class ReactiveEngine
         return Response::text($document)
             ->withHeader('Content-Type', 'text/html; charset=utf-8')
             ->withHeader('Cache-Control', 'no-store')
-            ->withHeader('Content-Security-Policy', "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'")
+            ->withHeader('Content-Security-Policy', "script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'")
             ->withHeader('X-Content-Type-Options', 'nosniff');
     }
 
@@ -330,6 +336,22 @@ final class ReactiveEngine
         ]);
     }
 
+    private function stylesheetResponse(): Response
+    {
+        $path = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'resources'
+            . DIRECTORY_SEPARATOR . 'ui' . DIRECTORY_SEPARATOR . 'nora.css';
+        $stylesheet = file_get_contents($path);
+        if ($stylesheet === false) {
+            throw new RuntimeException('The Nora UI stylesheet asset is unavailable.');
+        }
+
+        return new Response($stylesheet, 200, [
+            'Content-Type' => 'text/css; charset=utf-8',
+            'Cache-Control' => 'public, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     private function assertSameOrigin(Request $request): void
     {
         if (strtolower($request->header('Sec-Fetch-Site') ?? '') === 'cross-site') {
@@ -387,7 +409,12 @@ final class ReactiveEngine
         array &$children,
         array &$activeChildren,
         string $parentPath,
+        int $depth = 0,
     ): string {
+        if ($depth > self::MAX_COMPONENT_DEPTH) {
+            throw new HttpException(500, 'The reactive component tree exceeds its depth limit.');
+        }
+
         $component = $this->components[$componentName] ?? null;
         if ($component instanceof ReactiveNestedComponentInterface) {
             $html = $component->render($state, $props);
@@ -488,6 +515,7 @@ final class ReactiveEngine
                 $children,
                 $activeChildren,
                 $childPath,
+                $depth + 1,
             );
             $marker = ReactiveChildDefinition::placeholder($key);
             if (substr_count($html, $marker) !== 1) {

@@ -30,30 +30,32 @@ deploying the generated project, change it to a released package or a
 deliberately managed repository reference. Nora does not yet publish a tagged
 package release.
 
-## Inspect the PHP component and template
+## Inspect the PHP component
 
 The generated `src/routes.php` registers a `CounterPage` and mounts it at `/`.
-`src/Reactive/CounterPage.php` supplies initial state, rendering via
-`TemplateRenderer`, and an explicit `increment` action. The action validates
-its `amount` argument and returns the next state:
+`src/Reactive/CounterPage.php` extends `Nora\Reactive\Component`. Its
+`initialState()` returns server-owned state, `view(State $state)` composes
+escaped markup with `UI`, and `actions()` explicitly allowlists the
+`increment` transition:
 
 ```php
-'increment' => new ReactiveAction(
-    ['amount' => 'integer|min:1|max:10'],
-    static fn (array $state, array $arguments): array => [
-        'count' => $state['count'] + (int) $arguments['amount'],
-    ],
-),
+protected function view(State $state): SafeHtml
+{
+    return UI::fragment([
+        UI::element('h2', [], 'Count: ' . $state->get('count')),
+        UI::actionButton('increment', 'Increment', ['amount' => 1]),
+    ]);
+}
 ```
 
-The page template includes two separately keyed counter partials. Both render
-from the same page state; one successful action updates both outputs. A normal
-text input is included to demonstrate that compatible input values are kept
-through the DOM update.
-
-The framework adds the document-level runtime script automatically. The
-buttons declare an action name in server-rendered markup; there is no
-per-component mount script or custom JavaScript to write.
+The generated page uses `UI::each()` for two keyed counter sections. Both read
+the same page state, so one authorized action updates both outputs. `UI`
+escapes text and attributes, rejects event-handler/style attributes and unsafe
+URL schemes, and creates protocol-ready buttons without hand-written HTML.
+`State::computed()` derives a render-time value from the immutable state
+snapshot. The framework adds its document-level runtime script and the Nora
+UI stylesheet automatically; no custom JavaScript or per-component mounting
+code is required.
 
 ## Run and interact
 

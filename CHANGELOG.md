@@ -3,6 +3,32 @@
 All notable changes are recorded here. Follow the
 [release policy](RELEASE_POLICY.md) and keep entries factual.
 
+## v0.2.0 — 2026-10-28
+
+- Add an experimental composable PHP UI API with safe HTML elements,
+  fragments, typed props, named slots, render-state access, computed values,
+  keyed iteration, and explicit reactive action buttons. The API adapts the
+  existing reactive engine; it does not expose arbitrary PHP methods.
+- Add reusable layout, form, feedback, data-display, and interaction
+  components, plus a bundled theme served by mounted reactive pages.
+- Add a runnable UI integration demo with server-validated forms, a searchable,
+  sortable, paginated in-memory table, reusable page layout, accessible
+  interactions, and explicitly authorized reactive actions.
+- Extend the CLI with composable component scaffolding while preserving its
+  refusal to overwrite existing files.
+- Fix controlled-dialog reconciliation and focus handling, and recover failed
+  avatar images that load before the deferred browser runtime starts.
+- Keep the public UI API experimental and unstable. Existing implementations
+  of `ReactiveComponent` remain compatible. The demo uses session-only data
+  and illustrative authorization; it is not a production deployment template.
+- Verification: `composer check` passed (strict Composer validation, no
+  Composer security advisories, and 142 PHPUnit tests / 667 assertions; 4
+  skipped), `npm run test:browser` passed (4 Chromium scenarios), PHP syntax
+  checks passed for 66 files, and `node --check` and `git diff --check` passed.
+  The skipped tests require enforced filesystem permissions, symlink creation,
+  or a dedicated local MySQL test database. No independent security review or
+  automated accessibility scan was performed.
+
 ## v0.1.2 — 2026-10-28
 
 - Add an optional password-login service backed by application-provided

@@ -239,10 +239,18 @@ Opt-in forms bind explicitly named controls to server-validated actions and
 display accessible field errors; file controls and multiple-selects are not
 supported, and a non-JavaScript POST route remains application-owned.
 Navigation/history, offline support, automatic retries, and persistent
-real-time transport are not provided. Component `render()` output is trusted
-PHP-authored markup; escape dynamic data with `TemplateRenderer`.
+real-time transport are not provided. The optional `Nora\Reactive\Component`
+base and `UI`/`SafeHtml` composition API escape plain text and validate HTML
+attributes; legacy components that implement `ReactiveComponent` directly
+still return trusted PHP-authored markup.
 Read the [reactive engine specification](architecture/REACTIVE_UI_ENGINE.md)
 for the security model, form contract, and implemented/planned boundary.
+The [Nora UI integration demo](examples/nora-ui-demo/README.md) composes the
+documented layout, named slots, forms, searchable/sortable/paginated table,
+dialogs, tabs, dropdowns, and accessible feedback controls into a runnable
+page and exercises validation and authorized/denied actions. The component
+catalogue and exact props are in the [API reference](docs/API_REFERENCE.md).
+The command palette is not implemented.
 Local Chromium tests cover the generated page and nested components, along
 with allowed, invalid, stale, forged, and unauthorized actions, reactive form
 feedback, and preservation of compatible input values and focus. See the

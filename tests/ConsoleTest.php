@@ -20,6 +20,7 @@ final class ConsoleTest extends TestCase
         fclose($output);
 
         self::assertStringContainsString('make:controller', (string) $result);
+        self::assertStringContainsString('make:component', (string) $result);
         self::assertStringContainsString('development build', (string) $result);
     }
 
@@ -34,8 +35,13 @@ final class ConsoleTest extends TestCase
             self::assertFileExists($workspace . DIRECTORY_SEPARATOR . 'sample-app' . DIRECTORY_SEPARATOR . 'composer.json');
             self::assertFileExists($workspace . DIRECTORY_SEPARATOR . 'sample-app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'index.php');
             self::assertFileExists($workspace . DIRECTORY_SEPARATOR . 'sample-app' . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Reactive' . DIRECTORY_SEPARATOR . 'CounterPage.php');
-            self::assertFileExists($workspace . DIRECTORY_SEPARATOR . 'sample-app' . DIRECTORY_SEPARATOR . 'resources' . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'counter.nora');
             self::assertDirectoryExists($workspace . DIRECTORY_SEPARATOR . 'sample-app' . DIRECTORY_SEPARATOR . 'migrations');
+            $counterSource = (string) file_get_contents(
+                $workspace . DIRECTORY_SEPARATOR . 'sample-app' . DIRECTORY_SEPARATOR
+                    . 'src' . DIRECTORY_SEPARATOR . 'Reactive' . DIRECTORY_SEPARATOR . 'CounterPage.php',
+            );
+            self::assertStringContainsString('extends Component', $counterSource);
+            self::assertStringContainsString('UI::each(', $counterSource);
             $manifest = json_decode(
                 (string) file_get_contents($workspace . DIRECTORY_SEPARATOR . 'sample-app' . DIRECTORY_SEPARATOR . 'composer.json'),
                 true,
@@ -74,6 +80,16 @@ final class ConsoleTest extends TestCase
         try {
             self::assertSame(0, $app->run(['make:controller', 'User']));
             self::assertSame(0, $app->run(['make:model', 'User']));
+            self::assertSame(0, $app->run(['make:component', 'Alert']));
+            $generatedComponent = $workspace . DIRECTORY_SEPARATOR . 'src'
+                . DIRECTORY_SEPARATOR . 'Reactive' . DIRECTORY_SEPARATOR . 'Alert.php';
+            self::assertFileExists($generatedComponent);
+            self::assertStringContainsString('extends Component', (string) file_get_contents($generatedComponent));
+            token_get_all((string) file_get_contents($generatedComponent), TOKEN_PARSE);
+            self::assertSame(8, file_put_contents($generatedComponent, 'sentinel'));
+            self::assertSame(1, $app->run(['make:component', 'Alert']));
+            self::assertSame('sentinel', file_get_contents($generatedComponent));
+            self::assertSame(1, $app->run(['make:component', 'bad-name']));
             self::assertSame(1, $app->run(['make:model', '..']));
             self::assertSame(1, $app->run(['make:model', 'User']));
             self::assertStringContainsString(

@@ -56,6 +56,52 @@ method names. Page and child records are scoped to the current PHP session.
 PHP's session lock serializes requests for the same session; a stale revision
 is rejected and reconciled with current HTML instead of replaying the action.
 
+## Capability baseline and PHP authoring API
+
+The implementation audit covers the current source, integration tests,
+browser tests, CLI scaffold, package metadata, and this specification:
+
+| Capability | Baseline |
+|---|---|
+| Session-owned page state, explicit action allowlists, validation, authorization, CSRF/origin checks, page revisions, and bounded state/render output | Implemented and covered by `ReactiveLifecycleTest` and security regressions. |
+| Nested component registration by name, validated props, independent state, stable child keys/identities, and lifecycle callbacks | Implemented and covered by reactive integration tests; callers still assemble child placeholders and definitions manually. |
+| Server rendering and browser delegation/reconciliation, keyed nodes, input/focus preservation, and stale-response recovery | Implemented and covered in local Chromium for the cases described by the browser tests; not a general virtual DOM or cross-browser guarantee. |
+| Reactive forms and accessible validation messages | Implemented as markup conventions and browser-runtime behavior; no typed server form model, non-JavaScript POST handler, file control, or multiple-select support. |
+| `.nora` template interpolation and includes | Implemented with escaping, path confinement, and cycle checks. There is no template compiler, conditional/loop syntax, block system, or named template slots. |
+| PHP-safe markup composition, fragments, conditions, keyed iteration, action controls, and render-state access | Provided by `Component`, `State`, `UI`, and `SafeHtml` below; these reuse the original `ReactiveComponent` rendering and action protocol. |
+| Component discovery/automatic resolution, component test helpers, and development diagnostics | Not implemented; explicit registration remains deterministic. Reusable page shells are provided by `Components\Layout`. |
+| Typed props/defaults and named slots | Implemented by `Props` and `Slots` for rendering helpers; nested reactive children continue to use their existing `propsRules()` contract. |
+| UI kit | Server-rendered layout, feedback, form, data, and interaction helpers; native-dialog Modal; runtime-enhanced Tabs and Dropdown. The API reference catalogs the components and constraints; local Chromium covers integrated demo actions, validation, keyboard interactions, and focus behavior. |
+| UI assets | Bundled custom-property theme served at `/_nora/ui.css` for mounted pages; no build step or external package required. |
+
+`Component` is an optional adapter over `ReactiveComponent`, not a second
+engine. It finalizes `render(array): string`, passes an immutable `State`
+snapshot to `view(State): SafeHtml`, and keeps the existing `initialState()` and
+explicit `actions()` methods. A page may register it with the same
+`ReactiveEngine::register()` and mount it with the same `mount()` call.
+
+`UI::element()`, `text()`, and `fragment()` return composable `SafeHtml`
+values. Ordinary scalar children and attributes are escaped. Event handlers,
+inline styles, `srcdoc`, multi-URL attributes, meta refresh, executable
+script/style elements, and unsafe URL schemes are rejected.
+`UI::when()` conditionally includes a child.
+`UI::each()` requires unique string/integer keys and a single SafeHtml element
+per item, emitting `data-nora-key` for the existing runtime.
+`UI::actionButton()` creates the current action attributes from an explicitly
+named action and string-keyed JSON arguments. It does not expose PHP methods
+or weaken authorization. `SafeHtml::trusted()` is an explicit escape hatch
+for trusted application-generated markup, not an HTML sanitizer.
+
+Nested child props remain validated through `propsRules()` and Nora's
+`Validator`. The independent `Props` helper provides strict types, defaults,
+required values, and enum constraints for render components; `Slots` passes
+only `SafeHtml` through default/named slots. `Card` demonstrates named slot
+composition. `.nora` partial includes remain available for reuse. General
+page layout integration, a server-side form object, automatic component
+discovery, and build-time asset manifests remain future work. Mounted reactive
+pages automatically load the static Nora theme from `/_nora/ui.css`; it uses
+custom properties and follows the browser's color scheme.
+
 ## Component and action contract
 
 The prototype has a registered `ReactiveComponent` per page type. It provides
@@ -81,7 +127,9 @@ registration, validates its props with the registered
 state from `initialState($props)`. Props are immutable for an instance:
 changing the key's child type or props disposes and remounts it with a new
 server-issued random identity. Unchanged key/type/props retain state and
-identity. Child components may recursively declare children.
+identity. Child components may recursively declare children. The engine limits a page to
+64 total child instances and 32 nested child levels, preventing unbounded
+component-tree traversal.
 
 An optional `ReactiveComponentLifecycleInterface` receives `mounted()` and
 `disposed()` callbacks. Removing a child from its parent's child list or
@@ -210,11 +258,11 @@ should flow through declared props/events or shared page state rather than
 implicit global mutation. Every child action must resolve through the same
 page/session authorization boundary.
 
-The first slice deliberately coordinates adjacent markup through a single
-page state rather than introducing an incomplete child-state protocol.
-Child-local state, ownership enforcement between independent components,
-component lifecycle restoration, and reusable nested class composition are
-future work.
+Nested state and ownership enforcement are available through the explicit
+child-component interfaces described above. Reusable class composition still
+requires registered child definitions and placeholders; the new `Component`
+base and `UI` markup builder improve page authoring but do not yet add named
+slots or automatic child discovery.
 
 ## Errors and connection recovery
 

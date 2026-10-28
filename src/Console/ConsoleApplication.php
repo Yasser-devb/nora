@@ -65,6 +65,7 @@ final class ConsoleApplication
             'new' => $this->newProject($parameters),
             'make:controller' => $this->makeClass($parameters, 'Controllers', 'Controller'),
             'make:model' => $this->makeClass($parameters, 'Models', ''),
+            'make:component' => $this->makeComponent($parameters),
             'migrate' => $this->migrate(false),
             'migrate:status' => $this->migrate(true),
             'serve' => $this->serve($parameters),
@@ -111,9 +112,6 @@ final class ConsoleApplication
             '.env.example' => "APP_ENV=development\nAPP_DEBUG=true\nNORA_DSN=\nNORA_DB_USERNAME=\nNORA_DB_PASSWORD=\n",
             'src/routes.php' => $this->routeTemplate(),
             'src/Reactive/CounterPage.php' => $this->reactiveComponentTemplate(),
-            'resources/views/counter.nora' => $this->reactivePageTemplate(),
-            'resources/views/components/counter-primary.nora' => $this->counterComponentTemplate('primary', 'Primary counter'),
-            'resources/views/components/counter-secondary.nora' => $this->counterComponentTemplate('secondary', 'Coordinated counter'),
             'public/index.php' => $this->publicIndexTemplate(),
             'public/router.php' => $this->serverRouterTemplate(),
             'README.md' => $this->projectReadmeTemplate($name, $relativeFrameworkPath),
@@ -191,6 +189,49 @@ final class ConsoleApplication
         fclose($stream);
         if ($written !== strlen($body)) {
             throw new RuntimeException('Unable to completely write generated class: ' . $path);
+        }
+
+        $this->write('Created ' . $path . PHP_EOL);
+
+        return 0;
+    }
+
+    /**
+     * @param list<string> $arguments
+     */
+    private function makeComponent(array $arguments): int
+    {
+        if (count($arguments) !== 1 || preg_match('/^[A-Z][A-Za-z0-9]*$/D', $arguments[0]) !== 1) {
+            throw new RuntimeException('Usage: nora make:component <ClassName>.');
+        }
+
+        $name = $arguments[0];
+        $base = $this->workingDirectory() . DIRECTORY_SEPARATOR . 'src'
+            . DIRECTORY_SEPARATOR . 'Reactive';
+        if (!is_dir($base) && !mkdir($base, 0755, true)) {
+            throw new RuntimeException('Unable to create component source directory: ' . $base);
+        }
+        $path = $base . DIRECTORY_SEPARATOR . $name . '.php';
+        $stream = @fopen($path, 'x');
+        if ($stream === false) {
+            throw new RuntimeException('File already exists or could not be created: ' . $path);
+        }
+
+        $contents = "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Reactive;\n\n"
+            . "use Nora\\Reactive\\Component;\nuse Nora\\Reactive\\ReactiveAction;\n"
+            . "use Nora\\Reactive\\SafeHtml;\nuse Nora\\Reactive\\State;\nuse Nora\\Reactive\\UI;\n\n"
+            . "final class {$name} extends Component\n{\n"
+            . "    public function initialState(): array\n    {\n        return [];\n    }\n\n"
+            . "    protected function view(State \$state): SafeHtml\n    {\n"
+            . "        return UI::element('section', [], '{$name}');\n    }\n\n"
+            . "    public function actions(): array\n    {\n        return [];\n    }\n}\n";
+        $written = fwrite($stream, $contents);
+        fclose($stream);
+        if ($written !== strlen($contents)) {
+            if (is_file($path) && !unlink($path)) {
+                throw new RuntimeException('Unable to remove an incomplete component file: ' . $path);
+            }
+            throw new RuntimeException('Unable to completely write component class: ' . $path);
         }
 
         $this->write('Created ' . $path . PHP_EOL);
@@ -369,50 +410,97 @@ final class ConsoleApplication
             . "return static function (Application \$app): void {\n"
             . "    \$runtime = new ReactiveEngine(new SessionManager("
             . "\$app->config()->get('app.environment') === 'production'));\n"
-            . "    \$runtime->register('counter', new CounterPage(dirname(__DIR__)));\n"
+            . "    \$runtime->register('counter', new CounterPage());\n"
             . "    \$runtime->mount(\$app, 'counter', '/');\n};\n";
     }
 
     private function reactiveComponentTemplate(): string
     {
-        return "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Reactive;\n\n"
-            . "use Nora\\Reactive\\ReactiveAction;\nuse Nora\\Reactive\\ReactiveComponent;\n"
-            . "use Nora\\View\\TemplateRenderer;\n\n"
-            . "final class CounterPage implements ReactiveComponent\n{\n"
-            . "    private readonly TemplateRenderer \$templates;\n\n"
-            . "    public function __construct(string \$projectRoot)\n    {\n"
-            . "        \$this->templates = new TemplateRenderer(\$projectRoot . '/resources/views');\n"
-            . "    }\n\n"
-            . "    public function initialState(): array\n    {\n        return ['count' => 0];\n    }\n\n"
-            . "    public function render(array \$state): string\n    {\n"
-            . "        return \$this->templates->render('counter', \$state);\n    }\n\n"
-            . "    public function actions(): array\n    {\n        return [\n"
-            . "            'increment' => new ReactiveAction(\n"
-            . "                ['amount' => 'integer|min:1|max:10'],\n"
-            . "                static fn (array \$state, array \$arguments): array => [\n"
-            . "                    'count' => \$state['count'] + (int) \$arguments['amount'],\n"
-            . "                ],\n"
-            . "                static fn (array \$state, array \$arguments): bool => \$state['count'] < 10,\n"
-            . "            ),\n        ];\n    }\n}\n";
+        return <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Reactive;
+
+use Nora\Reactive\Component;
+use Nora\Reactive\Components\Button;
+use Nora\Reactive\Components\Dropdown;
+use Nora\Reactive\Components\Modal;
+use Nora\Reactive\ReactiveAction;
+use Nora\Reactive\SafeHtml;
+use Nora\Reactive\State;
+use Nora\Reactive\UI;
+use Nora\Reactive\Components\Tabs;
+
+final class CounterPage extends Component
+{
+    public function initialState(): array
+    {
+        return ['count' => 0];
     }
 
-    private function reactivePageTemplate(): string
+    protected function view(State $state): SafeHtml
     {
-        return "<h1>Nora reactive counter</h1>\n"
-            . "<p>Change this field, then activate a counter to verify focus and input preservation.</p>\n"
-            . "<label>Unsubmitted note <input type=\"text\" value=\"Keep my input\"></label>\n"
-            . "{% include \"components/counter-primary\" %}\n"
-            . "{% include \"components/counter-secondary\" %}\n";
+        $count = $state->get('count');
+        $counters = UI::each(
+            [
+                ['key' => 'primary', 'title' => 'Primary counter'],
+                ['key' => 'secondary', 'title' => 'Coordinated counter'],
+            ],
+            static fn (array $counter): string => $counter['key'],
+            static fn (array $counter): SafeHtml => UI::element('section', [
+                'data-nora-component' => 'counter',
+            ], [
+                UI::element('h2', [], $counter['title']),
+                UI::element('p', [], [
+                    'Shared count: ',
+                    UI::element('output', [], $count),
+                ]),
+                Button::render([
+                    'action' => 'increment',
+                    'arguments' => ['amount' => 1],
+                ], 'Increment'),
+            ]),
+        );
+
+        return UI::fragment([
+            UI::element('h1', [], 'Nora reactive counter'),
+            UI::element('p', [], 'Change this field, then activate a counter to verify focus and input preservation.'),
+            UI::element('label', [], [
+                'Unsubmitted note ',
+                UI::element('input', ['type' => 'text', 'value' => 'Keep my input']),
+            ]),
+            $counters,
+            Modal::render(
+                ['id' => 'counter-help', 'title' => 'About Nora', 'trigger' => 'About'],
+                UI::element('p', [], 'This dialog is accessible and uses the browser dialog element.'),
+            ),
+            Tabs::render('counter-tabs', 'Counter information', [
+                ['id' => 'overview', 'label' => 'Overview', 'content' => UI::element('p', [], 'Server-rendered overview.')],
+                ['id' => 'details', 'label' => 'Details', 'content' => UI::element('p', [], 'Additional details.')],
+            ]),
+            Dropdown::render(
+                ['label' => 'More options'],
+                UI::element('a', ['href' => '/health'], 'Health endpoint'),
+            ),
+        ]);
     }
 
-    private function counterComponentTemplate(string $key, string $title): string
+    public function actions(): array
     {
-        return '<section data-nora-component="counter" data-nora-key="' . $key . '">' . "\n"
-            . '    <h2>' . $title . "</h2>\n"
-            . "    <p>Shared count: <output>{{ count }}</output></p>\n"
-            . "    <button type=\"button\" data-nora-action=\"increment\" "
-            . "data-nora-args='{\"amount\":1}'>Increment</button>\n"
-            . "</section>\n";
+        return [
+            'increment' => new ReactiveAction(
+                ['amount' => 'integer|min:1|max:10'],
+                static fn (array $state, array $arguments): array => [
+                    'count' => $state['count'] + (int) $arguments['amount'],
+                ],
+                static fn (array $state, array $arguments): bool => $state['count'] < 10,
+            ),
+        ];
+    }
+}
+PHP;
     }
 
     private function publicIndexTemplate(): string
@@ -439,7 +527,7 @@ final class ConsoleApplication
             . "Generated with Nora Framework. This starter includes a server-rendered reactive counter page using Nora's first-party browser runtime. The Composer path repository points to the Nora checkout that created this project; adjust it before sharing the project with another machine.\n\n"
             . "```powershell\ncomposer install\ncopy .env.example .env\nphp "
             . $frameworkPath . "/bin/nora serve\n```\n\n"
-            . "The two counter displays share server-owned session state. The reactive API is an early prototype; see the Nora Reactive UI Engine documentation for limitations and security guidance.\n";
+            . "The two counter displays share server-owned session state. The starter uses Nora's composable PHP UI API; the reactive API remains experimental. See the Nora Reactive UI Engine documentation for limitations and security guidance.\n";
     }
 
     private function help(): string
@@ -451,6 +539,7 @@ final class ConsoleApplication
             . "  new <name>             Create a safe starter application\n"
             . "  make:controller <name> Generate a controller under src/Controllers\n"
             . "  make:model <name>      Generate a model under src/Models\n"
+            . "  make:component <name>  Generate a reactive PHP component under src/Reactive\n"
             . "  migrate                Apply pending migrations using NORA_DSN\n"
             . "  migrate:status         Show migration state using NORA_DSN\n"
             . "  serve [host] [port]    Run the generated app with PHP's development server\n";

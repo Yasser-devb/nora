@@ -62,14 +62,21 @@ final class ReactiveLifecycleTest extends TestCase
         self::assertSame(200, $page->status());
         self::assertStringContainsString('data-nora-root', $page->body());
         self::assertStringContainsString('<script defer src="/_nora/runtime.js"></script>', $page->body());
+        self::assertStringContainsString('<link rel="stylesheet" href="/_nora/ui.css">', $page->body());
         self::assertSame('text/html; charset=utf-8', $page->headers()['Content-Type']);
         self::assertSame('no-store', $page->headers()['Cache-Control']);
         self::assertStringContainsString("script-src 'self'", $page->headers()['Content-Security-Policy']);
+        self::assertStringContainsString("style-src 'self'", $page->headers()['Content-Security-Policy']);
 
         $runtime = $app->handle(Request::fromUri('GET', '/_nora/runtime.js'));
         self::assertSame(200, $runtime->status());
         self::assertStringContainsString("document.addEventListener('click'", $runtime->body());
         self::assertSame('application/javascript; charset=utf-8', $runtime->headers()['Content-Type']);
+
+        $stylesheet = $app->handle(Request::fromUri('GET', '/_nora/ui.css'));
+        self::assertSame(200, $stylesheet->status());
+        self::assertSame('text/css; charset=utf-8', $stylesheet->headers()['Content-Type']);
+        self::assertStringContainsString('--nora-color-primary', $stylesheet->body());
 
         $pageId = $this->attribute($page->body(), 'data-nora-page');
         $csrf = $this->metaContent($page->body(), 'nora-csrf');
@@ -432,6 +439,17 @@ final class ReactiveLifecycleTest extends TestCase
 
         self::assertSame(403, $response->status());
         self::assertSame(0, $child->transitionCalls());
+    }
+
+    public function testNestedComponentTreeEnforcesMaximumDepth(): void
+    {
+        $engine = new ReactiveEngine(new SessionManager(false));
+        $engine->register('depth-page', new IntegrationDepthParentComponent());
+        $engine->register('depth-child', new IntegrationDepthChildComponent());
+        $app = new Application();
+        $engine->mount($app, 'depth-page', '/depth');
+
+        self::assertSame(500, $app->handle(Request::fromUri('GET', '/depth'))->status());
     }
 
     public function testRemovedNestedChildrenAreDisposedAndCannotBeReused(): void
@@ -804,5 +822,66 @@ final class IntegrationChildComponent implements ReactiveNestedComponentInterfac
     public function mountedIds(): array
     {
         return $this->mounted;
+    }
+}
+
+/**
+ * @internal
+ */
+final class IntegrationDepthParentComponent implements ReactiveComponent, ReactiveParentComponentInterface
+{
+    public function initialState(): array
+    {
+        return [];
+    }
+
+    public function render(array $state): string
+    {
+        return ReactiveChildDefinition::placeholder('first');
+    }
+
+    public function actions(): array
+    {
+        return [];
+    }
+
+    public function children(array $state): array
+    {
+        return [new ReactiveChildDefinition('first', 'depth-child', ['depth' => 0])];
+    }
+}
+
+/**
+ * @internal
+ */
+final class IntegrationDepthChildComponent implements ReactiveNestedComponentInterface
+{
+    public function propsRules(): array
+    {
+        return ['depth' => 'required|integer|min:0|max:1000'];
+    }
+
+    public function initialState(array $props): array
+    {
+        return ['depth' => $props['depth']];
+    }
+
+    public function render(array $state, array $props): string
+    {
+        return $state['depth'] < 100
+            ? ReactiveChildDefinition::placeholder('next')
+            : '<output>Finished</output>';
+    }
+
+    public function actions(): array
+    {
+        return [];
+    }
+
+    public function children(array $state, array $props): array
+    {
+        return $state['depth'] < 100
+            ? [new ReactiveChildDefinition('next', 'depth-child', ['depth' => $state['depth'] + 1])]
+            : [];
     }
 }

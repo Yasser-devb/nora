@@ -250,7 +250,7 @@ host, or a shared filesystem only after its `flock` semantics have been
 verified. It is not a distributed limiter. Application rate limiting does not
 replace reverse-proxy, web-server, network, or resource-level DoS controls.
 
-## Reactive UI (experimental prototype; API is unstable)
+## Reactive UI (experimental; API is unstable)
 
 | API | Purpose |
 |---|---|
@@ -260,6 +260,11 @@ replace reverse-proxy, web-server, network, or resource-level DoS controls.
 | `Nora\Reactive\ReactiveComponentLifecycleInterface` | Receive mount and disposal callbacks for nested child instances. |
 | `Nora\Reactive\ReactiveAction` | Declare argument rules, a state transition, and an optional authorization callback; missing authorization denies by default. Use `ReactiveAction::publicAction(...)` to intentionally declare an action public to a valid page holder. |
 | `Nora\Reactive\ReactiveEngine` | Register page components, install session/action/runtime routes, and mount a server-rendered page with an optional escaped document title. |
+| `Nora\Reactive\Component` | Implement the existing page-component contract with a safe `view(State): SafeHtml` method while keeping state transitions explicit. |
+| `Nora\Reactive\State` | Read a render-time state snapshot with dot-path lookup and compute derived values without mutating server state. |
+| `Nora\Reactive\UI` / `SafeHtml` | Compose escaped text, HTML elements, fragments, conditions, keyed collections, and action buttons. |
+| `Nora\Reactive\Props` / `Slots` | Validate declared prop types/defaults and pass safe markup through named/default slots. |
+| `Nora\Reactive\Components\Button`, `Alert`, `Card`, `Field`, `ReactiveForm`, `Table`, `Layout`, `Modal`, `Tabs`, `Dropdown` | Render Nora UI kit primitives. Modal, tabs, and dropdown use the framework runtime for their documented interactions. |
 
 The browser runtime is served from `/_nora/runtime.js` and automatically
 included in mounted documents. A document has one mounted page component;
@@ -270,7 +275,8 @@ Use `ReactiveChildDefinition::placeholder($key)` exactly once in the parent
 markup for each definition. Child props changes dispose and remount the
 instance; removing a child disposes it and removes its state. Optional
 `ReactiveComponentLifecycleInterface` hooks receive the server-issued identity.
-The engine bounds a page to 64 child instances and 64 KiB of combined state.
+The engine bounds a page to 64 child instances, 32 nested component levels,
+262,144 bytes of rendered HTML, and 64 KiB of combined state.
 The client submits action intent and a child identity, never child state. The
 server resolves the identity only within the session-owned page and checks
 authorization, CSRF, and the page revision on every action. `ReactiveAction`
@@ -308,6 +314,158 @@ receives current state and validated arguments and must return the next state
 array. Component markup is trusted PHP output; escape untrusted dynamic values
 before returning it.
 
+### Composable PHP UI API
+
+`Component` is an optional base class over the existing `ReactiveComponent`
+contract. It does not create another engine, infer browser-callable methods, or
+change the registration/action protocol. Components still implement
+`initialState()` and an explicit `actions()` map. Override the protected view
+method with a typed `State` snapshot and return `SafeHtml` built by `UI`:
+
+```php
+use Nora\Reactive\Component;
+use Nora\Reactive\ReactiveAction;
+use Nora\Reactive\SafeHtml;
+use Nora\Reactive\State;
+use Nora\Reactive\UI;
+
+final class Counter extends Component
+{
+    public function initialState(): array
+    {
+        return ['count' => 0];
+    }
+
+    protected function view(State $state): SafeHtml
+    {
+        $count = $state->get('count');
+        $nextCount = $state->computed(
+            static fn (State $snapshot): int => $snapshot->get('count') + 1,
+        );
+
+        return UI::fragment([
+            UI::element('output', [], $count),
+            UI::actionButton('increment', 'Increment', ['amount' => 1]),
+            UI::when($nextCount < 10, UI::element('small', [], 'More increments available')),
+        ]);
+    }
+
+    public function actions(): array
+    {
+        return [
+            'increment' => new ReactiveAction(
+                ['amount' => 'required|integer|min:1|max:1'],
+                static fn (array $state, array $arguments): array => [
+                    ...$state,
+                    'count' => $state['count'] + $arguments['amount'],
+                ],
+                static fn (array $state): bool => $state['count'] < 10,
+            ),
+        ];
+    }
+}
+```
+
+`UI::element()` escapes scalar child text and attribute values. It rejects
+event-handler, inline-style, and `srcdoc` attributes; multi-URL attributes and
+meta refresh; executable `script` and `style` elements; and URL schemes other
+than HTTP, HTTPS, `mailto`, and `tel`.
+Boolean HTML attributes are emitted as empty attributes, while ARIA/data
+booleans are emitted as `"true"` or `"false"`. Use CSS classes instead of
+inline styles. A `SafeHtml` value can be nested as a child without being
+escaped a second time. `SafeHtml::trusted()` is an explicit trust boundary:
+only pass markup generated by trusted application code.
+
+`UI::fragment()` composes multiple roots. `UI::when()` conditionally includes
+one child. `UI::each($items, $key, $render)` calls the key selector with each
+item and the renderer with each item/key; keys must be unique strings or
+integers, and each renderer must return one `SafeHtml` element. The key is
+emitted as `data-nora-key` for the existing runtime reconciler. Keep keys
+stable across renders when items are reordered.
+
+`UI::actionButton()` creates a semantic button with the existing
+`data-nora-action` protocol attributes. Its action name and string-keyed
+arguments are serialized safely, but the registered `actions()` map remains
+the only server-side exposure mechanism. Its argument declarations and
+authorization callback are still mandatory security decisions. `State` is an
+immutable render snapshot: `get()` supports dot paths, `has()` checks
+existence, and `computed(callable)` evaluates a derived value for that render.
+State mutation remains the responsibility of an authorized
+`ReactiveAction` transition.
+
+`Props::resolve($definitions, $values)` checks declared prop names and strict
+types (`string`, `integer`, finite `float`/`number`, `boolean`, `array`, or
+`safe_html`), applies explicit defaults, rejects unknown values, and raises an
+exception for missing required props. No type coercion is performed. A
+definition may include `one_of` for a strict enum. `Slots` accepts only
+`SafeHtml` values under named keys; use `get('default', $fallback)` for an
+optional slot or `require('header')` for mandatory content.
+
+The UI kit includes the page, feedback, form, table, and interaction helpers
+listed below. Props are strict (no implicit coercion); undocumented props are
+rejected. Content passed as `SafeHtml` or through `Slots` is trusted markup
+created by Nora's composition API. Plain string labels, descriptions, values,
+and messages are escaped.
+
+### Component catalogue
+
+| Component | Signature and supported options |
+|---|---|
+| `Button` | `Button::render($props, $label, $attributes = [], ?Slots $slots = null)`. Variants: `primary`, `secondary`, `outline`, `ghost`, `link`, `danger`; sizes: `small`, `medium`, `large`. `disabled` and `loading` default to false; loading disables the button and announces `aria-busy`. `type` defaults to `button`; `action` and string-keyed `arguments` bind only to a registered server action. Optional `leading-icon` and `trailing-icon` slots are decorative. |
+| `Alert` | `Alert::render($props, Slots $slots)`. `variant`: `info`, `success`, `warning`, `danger`, or `error`; `label` defaults to `Notice`; `dismissible` defaults to false. Optional `title`, `icon`, and `default` slots. Dismissal is client-only. |
+| `Card` | `Card::render($props, Slots $slots)`. `as` defaults to `section` (`article` and `div` are also accepted); optional `labelled_by`, `title`, and `description` props. Slots: `header`, `default`, `actions`, and `footer`. Missing slots render empty. |
+| `Field` | `Field::render($props, SafeHtml $control, $errors = [])`. Requires `name` and `label`; optional `required`, `hint`; errors are escaped and associated with the control. Supply a real labelable input, select, or textarea. |
+| `ReactiveForm` | `ReactiveForm::render($props, SafeHtml $children, $attributes = [])`. Requires `action_name`; `action_url` defaults to `#`; `success_message` is optional. Bind controls with matching `name` and `data-nora-field`; the action schema remains authoritative. |
+| `Select` | `Select::render($props, $options)`. Requires `name` and `label`; optional `value`, `placeholder` (`Choose an option`), `required`, and `disabled`. Each option has a unique non-empty string `value`, non-empty string `label`, and optional boolean `disabled`. A non-empty selected value must match an option. |
+| `Checkbox` | `Checkbox::render($props)`. Requires `name` and `label`; optional `hint`, `checked`, `required`, and `disabled` (booleans default false). |
+| `RadioGroup` | `RadioGroup::render($props, $options)`. Requires `name`, `label`, and a non-empty options list; optional `value`, `hint`, `required`, and `disabled`. Option values are unique non-empty strings; labels are non-empty strings; option `disabled` is boolean. Outputs a labeled `fieldset` and `legend`. |
+| `SwitchControl` | `SwitchControl::render($props)`. Requires `name` and `label`; `checked` and `disabled` default to false. Renders a checkbox with `role="switch"`. |
+| `Textarea` | `Textarea::render($props, $errors = [])`. Requires `name` and `label`; `value` defaults to empty text, `rows` to 4 (range 1–30), `required` and `disabled` to false; optional `hint`. Uses `Field` for accessible error bindings. |
+| `Table` | `Table::render($props, $headers, $rows, $key, $cells)`. Requires at least one header; optional `caption` and `empty_message` (`No results.`). Produces semantic headers and stable keyed rows; it does not search, sort, or paginate. |
+| `DataTable` | `DataTable::render($props, iterable $rows, callable $key, callable $cells)`. Requires `columns` (unique `key` and non-empty `label`) and `caption`; optional `query`, `sort`, `direction` (`asc` or `desc`), `page` (1), `per_page` (5), `sort_action`, `page_action`, `action_arguments`, and `empty_message`. Search and sorting use raw scalar row fields named by the columns; callbacks render the visible cells. Paging happens after in-memory search/sort. Use a database query for large or unbounded datasets rather than materializing them in this helper. |
+| `SearchField` | `SearchField::render($props)`. `name` defaults to `query`, `label` to `Search`, `value` to empty text, and `placeholder` to `Search records`. The clear button clears locally; submitting still requires a form/action integration. |
+| `Pagination` | `Pagination::render($props, $baseArguments = [])`. Requires integer `current` and `total`; optional `action`, `page_argument` (`page`), and accessible `label` (`Pagination`). With `action`, emits reactive buttons with base arguments; without it, emits ordinary page links. |
+| `Modal` | `Modal::render($props, SafeHtml $content)`. Requires a unique safe `id` and non-empty `title`; `trigger` and `close_label` default to `Open dialog` and `Close dialog`; `description` is optional; `open` defaults false; `close_action` optionally synchronizes browser close/Escape events with a registered server action. Uses native `<dialog>`. |
+| `Tabs` | `Tabs::render($id, $label, $tabs, $selected = null)`. Each tab needs a unique safe `id`, non-empty `label`, and `SafeHtml` content; optional boolean `disabled`. The first enabled tab is selected by default. Arrow/Home/End keyboard operation skips disabled tabs. |
+| `Dropdown` | `Dropdown::render($props, SafeHtml $items)`. Requires non-empty accessible `label`; uses native `<details>/<summary>` and closes on Escape or outside click. Menu content is developer-supplied safe markup. |
+| `Accordion` | `Accordion::render($label, $items, $multiple = true)`. Each item has a unique safe `id`, non-empty `title`, `SafeHtml content`, and optional boolean `open`. Uses native `<details>/<summary>`; `multiple: false` groups disclosures by name. |
+| `Badge` | `Badge::render($props, string\|SafeHtml $label, ?SafeHtml $icon = null)`. `variant` defaults to `neutral` (`neutral`, `primary`, `success`, `warning`, `danger`, `info`); optional boolean `dot`. |
+| `Avatar` | `Avatar::render($props)`. Requires non-empty accessible `label`; optional safe `src` and `initials`; `size` defaults to `medium` (`small`, `medium`, `large`). Failed images fall back to initials. |
+| `Spinner` | `Spinner::render($props = [])`. `size` defaults to `medium`; `label` to `Loading`; `announce` to true. Use `announce: false` for an explicitly decorative spinner. |
+| `Skeleton` | `Skeleton::render($props = [])`. Decorative `variant` defaults to `text` (`text`, `rectangle`, `avatar`, `card`), `width` to `full` (`full`, `three-quarter`, `half`, `quarter`), and `height` to `medium` (`small`, `medium`, `large`). |
+| `Progress` | `Progress::render($props)`. Requires a non-empty accessible `label`; optional `value` in `[0, max]`; `max` defaults to 100 and must be positive. Omitting `value` produces an indeterminate native `<progress>`. |
+| `Separator` | `Separator::render($props = [])`. `orientation` defaults to `horizontal` (`horizontal`, `vertical`); `decorative` defaults true. |
+| `Tooltip` | `Tooltip::render($props, SafeHtml $trigger)`. Requires safe `id` and non-empty text `content`; trigger must be a single element so Nora can add `aria-describedby`. Provides hover/focus presentation and an ARIA tooltip relationship; it is not a substitute for essential instructions. |
+| `Breadcrumb` | `Breadcrumb::render($label, $items)`. Requires a non-empty landmark label and items; every item has a non-empty `label`, all but the last require `href`, and the last is marked `aria-current="page"`. |
+| `StatCard` | `StatCard::render($props)`. Requires non-empty `label` and string `value`; optional `description`, `trend` (`up`, `down`, `neutral`), and `trend_label`. Trend text is shown only when both trend props are present. |
+| `EmptyState` | `EmptyState::render($props, Slots $slots)`. Requires non-empty `title`; optional `description`; optional `icon` and `action` slots. |
+
+`Layout::render()` composes `navigation`, `header`, `default`, and `footer`
+slots into a reusable page shell. `Button`, alerts, tables, and forms remain
+usable as standalone server-rendered helpers, but static pages outside the
+reactive document shell must include `/_nora/ui.css` themselves.
+
+The mounted runtime delegates actions and the small client-only interactions
+above; it does not turn every component method into a browser action. Tab,
+dropdown, accordion, and local dismiss/clear behavior do not change server
+state. When a modal has `close_action`, close and Escape dispatch only that
+explicitly registered action. The runtime preserves focus when a dialog
+opens/closes and recovers avatar fallbacks when an image fails before deferred
+runtime startup. These semantics have local Chromium regression coverage, not
+cross-browser or automated assistive-technology certification.
+
+Mounted reactive documents load `/_nora/ui.css`, which uses `--nora-*`
+customization tokens and follows the operating system's light/dark color
+scheme. The command palette and a general-purpose animation/transition system
+are not included.
+
+Existing classes implementing `ReactiveComponent` directly remain compatible.
+Nested component props continue to use `propsRules()` and the existing
+validator; the new typed prop/slot helpers do not change that child protocol,
+which does not yet resolve PHP class components as reactive children.
+`.nora` templates continue to support escaped interpolation and includes, not
+conditional or loop syntax.
+
 Nested child components implement `ReactiveNestedComponentInterface`; their
 `propsRules()` are validated by Nora's `Validator` before initialization or
 render, and their `initialState(array $props)` result is independent of the
@@ -322,8 +480,9 @@ replayed. This is not a virtual-DOM framework or a cross-page state store.
 ### Reactive forms (experimental)
 
 The browser runtime supports opt-in forms using the existing reactive action
-endpoint; there is no separate form-builder or server-side form object. Mark a
-form with `data-nora-form` and `data-nora-action`. Bind each supported
+endpoint; `Components\ReactiveForm` and `Components\Field` provide rendering
+helpers, but there is no separate server-side form model. Mark a form with
+`data-nora-form` and `data-nora-action`. Bind each supported
 `input`, `select`, or `textarea` by setting both its `name` and matching
 `data-nora-field`. The action's server-side `ReactiveAction` rules are the
 allowlist and validation contract:
@@ -363,6 +522,10 @@ Messages are inserted as text, not markup. While a request is in flight,
 `invalid`, `success`, or `failed`. Compatible control values and focus are
 preserved through successful DOM reconciliation. Do not include passwords,
 tokens, or other secrets in rendered state or action responses.
+
+The CLI provides `php bin\nora make:component Alert`, which creates a
+`src/Reactive/Alert.php` component using the composable base API. It validates
+the class name and refuses to overwrite an existing file.
 
 The form still has ordinary `method` and `action` attributes. If JavaScript is
 disabled, the browser submits a normal POST to that application route; the

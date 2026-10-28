@@ -1,6 +1,12 @@
 (() => {
     'use strict';
 
+    const initialized = Symbol.for('nora.reactive.runtime.initialized');
+    if (document[initialized]) {
+        return;
+    }
+    document[initialized] = true;
+
     const rootSelector = '[data-nora-root]';
     let formErrorSequence = 0;
 
@@ -46,6 +52,13 @@
 
         for (const attribute of Array.from(current.attributes)) {
             if (!fresh.hasAttribute(attribute.name)) {
+                if (
+                    current instanceof HTMLDialogElement
+                    && attribute.name === 'open'
+                    && !fresh.hasAttribute('open')
+                ) {
+                    continue;
+                }
                 current.removeAttribute(attribute.name);
             }
         }
@@ -139,10 +152,28 @@
         }
         patchChildren(root, freshChildren);
         root.dataset.noraRevision = String(revision);
-        if (active instanceof HTMLElement && active.isConnected) {
+        syncModalStates(root);
+        const activeDialog = active instanceof HTMLElement ? active.closest('dialog') : null;
+        const openDialog = root.querySelector('dialog[open]');
+        if (
+            active instanceof HTMLElement
+            && active.isConnected
+            && (!activeDialog || activeDialog.open)
+            && (!openDialog || openDialog.contains(active))
+        ) {
             active.focus({ preventScroll: true });
         }
         window.scrollTo(beforeX, beforeY);
+    }
+
+    function syncModalStates(root = document) {
+        root.querySelectorAll('dialog[data-nora-modal-state]').forEach(dialog => {
+            if (dialog.dataset.noraModalState === 'open' && !dialog.open) {
+                dialog.showModal();
+            } else if (dialog.dataset.noraModalState === 'closed' && dialog.open) {
+                dialog.close();
+            }
+        });
     }
 
     function clearFormErrors(form) {
@@ -393,6 +424,62 @@
 
     document.addEventListener('click', event => {
         const target = event.target instanceof Element ? event.target : null;
+        if (!target) {
+            return;
+        }
+        const modalOpener = target.closest('[data-nora-modal-open]');
+        if (modalOpener) {
+            const dialog = document.getElementById(modalOpener.dataset.noraModalOpen);
+            if (dialog instanceof HTMLDialogElement && !dialog.open) {
+                dialog.showModal();
+            }
+            return;
+        }
+        const toastDismiss = target.closest('[data-nora-toast-dismiss]');
+        if (toastDismiss) {
+            if (toastDismiss.hasAttribute('data-nora-action')) {
+                const root = findRoot(toastDismiss);
+                if (root) {
+                    void dispatch(root, toastDismiss);
+                }
+            } else {
+                toastDismiss.closest('[data-nora-toast]')?.remove();
+            }
+            return;
+        }
+        const dismiss = target.closest('[data-nora-dismiss]');
+        if (dismiss) {
+            dismiss.closest('.nora-alert')?.remove();
+            return;
+        }
+        const searchClear = target.closest('[data-nora-search-clear]');
+        if (searchClear) {
+            const search = searchClear.parentElement?.querySelector('input[type="search"]');
+            if (search instanceof HTMLInputElement) {
+                search.value = '';
+                search.dispatchEvent(new Event('input', { bubbles: true }));
+                search.focus();
+            }
+            return;
+        }
+        const modalCloser = target.closest('[data-nora-modal-close]');
+        if (modalCloser) {
+            const dialog = modalCloser.closest('dialog');
+            if (dialog instanceof HTMLDialogElement && dialog.open) {
+                dialog.close();
+            }
+            return;
+        }
+        const tab = target.closest('[data-nora-tab-target]');
+        if (tab) {
+            selectTab(tab);
+            return;
+        }
+        if (!target.closest('[data-nora-dropdown]')) {
+            document.querySelectorAll('[data-nora-dropdown][open]').forEach(dropdown => {
+                dropdown.removeAttribute('open');
+            });
+        }
         const control = target?.closest('[data-nora-action]');
         if (!control) {
             return;
@@ -412,4 +499,104 @@
         }
         void dispatch(root, control);
     });
+
+    function showAvatarFallback(image) {
+        image.hidden = true;
+        const fallback = image.parentElement?.querySelector('[data-nora-avatar-fallback]');
+        if (fallback) {
+            fallback.hidden = false;
+        }
+    }
+
+    document.addEventListener('error', event => {
+        const image = event.target instanceof HTMLImageElement
+            ? event.target.closest('[data-nora-avatar-image]')
+            : null;
+        if (image) {
+            showAvatarFallback(image);
+        }
+    }, true);
+    document.querySelectorAll('img[data-nora-avatar-image]').forEach(image => {
+        if (image.complete && image.naturalWidth === 0) {
+            showAvatarFallback(image);
+        }
+    });
+
+    document.addEventListener('close', event => {
+        const dialog = event.target instanceof HTMLDialogElement ? event.target : null;
+        if (!dialog || dialog.dataset.noraModalState !== 'open') {
+            return;
+        }
+        dialog.dataset.noraModalState = 'closed';
+        const closeControl = dialog.querySelector('[data-nora-modal-close-action]');
+        const root = findRoot(dialog);
+        if (closeControl && root && root.dataset.noraBusy !== 'true') {
+            void dispatch(root, closeControl);
+        }
+    }, true);
+
+    function selectTab(tab) {
+        const group = tab.closest('[data-nora-tabs]');
+        if (!group || tab.matches(':disabled')) {
+            return;
+        }
+        const panelId = tab.getAttribute('aria-controls');
+        const selectedPanel = panelId ? document.getElementById(panelId) : null;
+        if (!selectedPanel || !group.contains(selectedPanel)) {
+            return;
+        }
+        group.querySelector('[role="tablist"]')?.querySelectorAll('[role="tab"]').forEach(candidate => {
+            const selected = candidate === tab;
+            candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
+            candidate.setAttribute('tabindex', selected ? '0' : '-1');
+        });
+        Array.from(group.children)
+            .filter(panel => panel.getAttribute('role') === 'tabpanel')
+            .forEach(panel => {
+                panel.hidden = panel !== selectedPanel;
+            });
+    }
+
+    document.addEventListener('keydown', event => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) {
+            return;
+        }
+        const tab = target.closest('[data-nora-tab-target]');
+        if (tab) {
+            const group = tab.closest('[data-nora-tabs]');
+            const tabList = group?.querySelector('[role="tablist"]');
+            const tabs = tabList
+                ? Array.from(tabList.querySelectorAll('[role="tab"]:not(:disabled)'))
+                : [];
+            if (tabs.length === 0) {
+                return;
+            }
+            const index = tabs.indexOf(tab);
+            let nextIndex = index;
+            if (event.key === 'ArrowRight') {
+                nextIndex = (index + 1) % tabs.length;
+            } else if (event.key === 'ArrowLeft') {
+                nextIndex = (index - 1 + tabs.length) % tabs.length;
+            } else if (event.key === 'Home') {
+                nextIndex = 0;
+            } else if (event.key === 'End') {
+                nextIndex = tabs.length - 1;
+            } else {
+                return;
+            }
+            event.preventDefault();
+            tabs[nextIndex].focus();
+            selectTab(tabs[nextIndex]);
+            return;
+        }
+
+        const dropdown = target.closest('[data-nora-dropdown][open]');
+        if (dropdown && event.key === 'Escape') {
+            dropdown.removeAttribute('open');
+            dropdown.querySelector('summary')?.focus();
+        }
+    });
+
+    syncModalStates();
 })();
