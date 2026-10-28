@@ -87,8 +87,9 @@ final class DatabaseServerTest extends TestCase
         $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'nora-migrations-' . $suffix;
         $successTable = 'nora_test_migration_success_' . $suffix;
         $failureTable = 'nora_test_migration_failure_' . $suffix;
-        $successName = gmdate('YmdHis') . '_nora_test_success_' . $suffix;
-        $failureName = gmdate('YmdHis') . '_nora_test_failure_' . $suffix;
+        $migrationTimestamp = gmdate('YmdHis');
+        $successName = $migrationTimestamp . '_nora_test_01_success_' . $suffix;
+        $failureName = $migrationTimestamp . '_nora_test_02_failure_' . $suffix;
         $successPath = $directory . DIRECTORY_SEPARATOR . $successName . '.php';
         $failurePath = $directory . DIRECTORY_SEPARATOR . $failureName . '.php';
 
