@@ -10,16 +10,16 @@
 | Configuration and `.env` loading | Implemented, tested | Layer precedence, required/type checks, process-variable precedence |
 | Exception handling/logging | Implemented, tested | Safe response mapping and structured redaction tests |
 | Validation | Implemented, tested | Unit tests for built-in/custom rules and nested fields |
-| PDO/query/migrations/diagnostics | Implemented, unit tested | CRUD builders, nested savepoints, migration tracking, and opt-in query diagnostics; PDO doubles locally, live MySQL/MariaDB effects remain unverified |
+| PDO/query/migrations/diagnostics | Implemented, tested | CRUD builders, nested savepoints, migration tracking, and opt-in query diagnostics; MySQL 8.4 integration passed in hosted CI at `2183336`; local DB and MariaDB remain unverified |
 | CLI | Implemented, tested | Help/version, scaffold, generators, safe overwrite behavior; `serve` delivered a clean generated reactive app |
-| Sessions/auth/authorization/CSRF | Implemented, tested | Unit and security integration tests; authentication provider/account lifecycle is not included |
+| Sessions/auth/authorization/CSRF | Partially implemented, tested | Session integration plus provider-based password login, account status checks, generic credential rejection, password rehash, and required rate limiting; registration, persistence schema, verification/reset, MFA, and account lifecycle remain absent |
 | Rate limiting | Experimental, opt-in | File-backed fixed-window store and middleware have unit coverage; single-host/shared-filesystem locking and deployment permissions require verification |
 | Upload intake and private storage | Partial, unit tested | Bounded PHP upload validation, MIME policy, private local storage, and authorization-before-read; live multipart behavior, deployment ACLs, metadata, and large-file streaming remain unverified |
 | View rendering | Implemented, tested | Escaped values, includes, path/cycle guards |
 | Reactive UI prototype | Experimental, tested | Explicit authorization, CSRF/revision checks, nested component identities/state, and opt-in validated forms have PHP and local Chromium coverage; API remains unstable and is not production certified |
 | Nora website example | Excluded from framework release | Local standalone project remains on disk; its implementation and website-specific tests are not part of the framework source tree or Composer package |
 | Architecture documentation | Implemented | Current component/flow docs; diagrams describe current behavior |
-| CI | Workflow tracked; hosted execution not verified | The workflow includes PHP tests, audits, browser tests, and an ephemeral MySQL 8.4 service. No hosted Actions run is verified by this status |
+| CI | Workflow tracked; latest hosted run passed before current auth changes | At `2183336`, PHP 8.2/8.3, package-consumer, browser, and MySQL 8.4 jobs passed; the current uncommitted authentication changes have not run in hosted CI |
 | Open-source governance | Partially prepared | Framework code is MIT-licensed and the root copyright notice names Morave Technologies, as confirmed by the maintainer. The separate extension declares `UNLICENSED`; private security reporting and branch protection need platform setup |
 | Project comparison | Scoped research documented | GitHub search surfaced Moroccan PHP community, integration package, and Laravel application examples; review is not exhaustive and supports no “first” claim |
 | AI integration | Planned | No provider/tool runtime exists |
@@ -33,7 +33,7 @@
   `pdo_mysql`, and `zip` are enabled.
 - `composer validate --strict`: **PASS**.
 - `composer audit`: **PASS**, no advisories reported.
-- `composer test -- --display-warnings`: **PASS**, 120 tests and 527
+- `composer test -- --display-warnings`: **PASS**, 125 tests and 545
   assertions; **4 SKIPPED**. Two MySQL integration tests require a dedicated
   `NORA_TEST_DSN`; Windows could not enforce the tested directory permission
   change and did not permit creating the symlink needed by two platform
@@ -42,8 +42,10 @@
   `node --check` over the reactive runtime and browser test: **PASS**.
 - `npm run test:browser`: **PASS**, two Playwright Chromium scenarios against
   clean generated applications.
-- GitHub Actions: **NO PASSING HOSTED RUN VERIFIED**. Workflow configuration
-  does not establish hosted execution or a successful result.
+- `php -l` on the new authentication source and test files: **PASS**.
+- GitHub Actions at `2183336`: **PASS**, including both MySQL-backed PHP
+  matrix jobs; current uncommitted authentication changes are not covered by
+  that run.
 - Independent security review: **NOT PERFORMED**; the planned review remains a
   release gate. Passing automated checks are not a security certification.
 - Nora Framework's code is distributed under MIT; the root `LICENSE` notice

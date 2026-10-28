@@ -306,8 +306,10 @@ registered for browser/session-backed routes; it accepts `X-CSRF-Token` or a
 form `_csrf` field. Do not apply browser CSRF assumptions indiscriminately to
 stateless APIs. Rate limiting is opt-in and file-backed; upload intake and
 private local storage are partial APIs requiring deployment-level limits and
-permissions. Authentication providers and a complete account lifecycle are
-not included.
+permissions. `PasswordLoginService` supports credential verification with an
+application-supplied account provider, password rehashing, and required
+rate-limiter configuration. Nora does not yet provide account persistence or
+a complete account lifecycle.
 
 ## CLI
 
@@ -329,26 +331,27 @@ unavailable.
 
 `composer test` runs unit, integration, and security suites. The Playwright
 browser test separately exercises a clean generated app and its reactive
-round-trip. CI runs Composer validation, PHP syntax checks, the PHP suite on
-PHP 8.2 and 8.3, and a Chromium reactive-browser job. Static analysis,
-benchmarks, production web-server recipes, and routine real database
-integration tests are not yet configured or verified. See the transparent
+round-trip. CI runs Composer validation, PHP syntax checks, the PHP suite on PHP 8.2 and
+8.3 with a disposable MySQL 8.4 service, and a Chromium reactive-browser job.
+Local MySQL integration still requires a separately provisioned test database.
+Static analysis, benchmarks, and production web-server recipes are not yet
+configured or verified. See the transparent
 [implementation status](docs/audit/IMPLEMENTATION_STATUS.md) and
 [roadmap](docs/ROADMAP.md).
 
 Implemented and tested in this repository: request/response dispatch,
 bootstrap and configuration, DI, middleware, exception handling/logging,
 validation, PDO query binding and migration tracking logic, CLI generation and
-commands, session/authentication integration, authorization, CSRF, and
-escaped template rendering.
+commands, session authentication and the optional provider-based password
+login service, authorization, CSRF, and escaped template rendering.
 
-Still incomplete or unverified: real MySQL/MariaDB connection/migration runs,
-full authentication/account workflows, upload deployment and streaming
+Still incomplete or unverified: MariaDB compatibility, registration,
+verification/reset and MFA account workflows, upload deployment and streaming
 behavior, controller dispatch conventions, route groups/URL generation,
 production deployment, independent security review, performance benchmarks,
-cross-browser reactive behavior, and optional AI integration. Reactive UI
-and rate limiting are experimental; upload support is partial. Do not treat
-passing tests as a security certification.
+cross-browser reactive behavior, and optional AI integration.
+Reactive UI and rate limiting are experimental; upload support is partial. Do
+not treat passing tests as a security certification.
 
 ## Project, governance, and documentation
 

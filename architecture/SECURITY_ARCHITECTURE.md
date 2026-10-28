@@ -22,6 +22,9 @@ security certification.
   closes it on response/exception unwind.
 - Session-backed login/logout rotates the identifier.
 - Authentication transitions invalidate the session CSRF token.
+- `PasswordLoginService` checks credentials through an application-owned
+  `AccountProviderInterface`, checks account status, rehashes outdated
+  passwords, and requires a configured rate limiter for each attempt.
 - Authorization denies undefined abilities.
 - CSRF middleware checks unsafe HTTP methods with a session token using
   `hash_equals`; it is opt-in and should be attached to browser/session routes.
@@ -46,7 +49,7 @@ security certification.
 | HTTP input | Request method/path checks, JSON/form parsing, bounded `Request::fromGlobals()` body reads, access to PHP-parsed multipart upload fields | Upstream size limits are required before PHP; directly constructed requests are caller-supplied; general schema policy remains application-owned |
 | Database | PDO prepared values and safe query-builder identifiers | Raw SQL remains caller-authored; live MySQL not tested |
 | Session | Secure cookie defaults and ID rotation | No session expiry policy, store backend, or deployment proxy policy |
-| Authentication | User identifier contract and session resolver integration | No account provider, credential flow, remember-me, brute-force limiter |
+| Authentication | Session resolver and password-login service with application-owned account provider, password rehashing, and required fixed-window limiter | Registration, persistence schema, verification/reset tokens, MFA, and account lifecycle remain unimplemented |
 | Authorization | Explicit Gate abilities, deny-by-default | Applications must define and enforce every resource policy |
 | CSRF | Opt-in unsafe-method middleware; reactive endpoints also check origin/fetch metadata | Stateless API policy is application configuration |
 | Rate limiting | Opt-in fixed-window `RateLimitMiddleware`; application supplies the bucket key; file updates are locked and hashed | Single-host/local filesystem only unless shared locking is verified; not a volumetric DoS control; storage errors return 503 |
@@ -56,10 +59,11 @@ security certification.
 | AI tools | Not implemented | Must use explicit schema, authorization, least privilege, resource limits, audit |
 | Reactive actions | Explicit action registry, strict JSON schema and request limits, CSRF/origin checks, session-bound page and child identities, expected page revision, independent child state, deny-by-default per-action authorization | No durable exactly-once semantics or account provider; actions without a callback are denied; intentionally public actions require `ReactiveAction::publicAction`; component HTML remains trusted PHP |
 
-No automatic protection is provided against brute force, unsafe file uploads,
-SSRF, command execution, unsafe deserialization, or insecure deployment
-permissions. Rate limiting is opt-in and depends on the application's chosen
-key and policy. Do not expose the development server publicly.
+No automatic protection is provided against brute force outside a configured
+`PasswordLoginService` limiter, unsafe file uploads, SSRF, command execution,
+unsafe deserialization, or insecure deployment permissions. Rate limiting is
+opt-in and depends on the application's chosen trusted key and policy. Do not
+expose the development server publicly.
 
 `FileRateLimitStore` hashes keys before filenames or state are written, and
 uses an exclusive lock shared by all buckets in its configured directory.
@@ -129,6 +133,21 @@ persistent connections, offline retries, or a formal browser support matrix.
 Production apps must use HTTPS and secure session cookies.
 
 ## Authentication and authorization flow
+
+Password login uses the application-provided `AccountProviderInterface` and
+`PasswordAccountInterface`; Nora does not impose a user schema or persistence
+implementation. `PasswordLoginService::attempt()` always consumes a rate-limit
+bucket before account lookup, performs a dummy password verification for
+unknown email addresses, rejects disabled accounts, and rehashes a valid
+password when the configured native password algorithm requires it. Invalid
+credentials have the same generic result regardless of whether an account
+exists. A throttled result exposes its retry interval; the application should
+map that to an HTTP 429 response. The caller must derive the rate-limit key
+from a trusted client identity and configure the limiter's store and policy.
+
+The service provides credential verification only. Registration, account
+storage, email verification, password recovery, two-factor authentication,
+mail delivery, and login route/controller scaffolding are not included.
 
 ```mermaid
 sequenceDiagram

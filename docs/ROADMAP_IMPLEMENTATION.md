@@ -41,7 +41,7 @@ readiness.
 | P2 | [NORA-DB-03: Add opt-in query diagnostics](#nora-db-03--add-opt-in-query-diagnostics) | Implemented; unit tests pass | DB-01; privacy policy | S/M |
 | P1 | [NORA-REACT-01: Define independent nested reactive components](#nora-react-01--define-independent-nested-reactive-components) | Implemented; focused unit/integration and local Chromium tests pass | SEC-01; existing reactive slice | L |
 | P1 | [NORA-REACT-02: Add server-authoritative reactive forms](#nora-react-02--add-server-authoritative-reactive-forms) | Implemented and locally browser-tested; native POST fallback remains application-owned | REACT-01; existing Validator | M/L |
-| P1 | [NORA-AUTH-01: Define and implement an account-provider boundary](#nora-auth-01--define-and-implement-an-account-provider-boundary) | Partially implemented | BASE-01; SEC-02 | L |
+| P1 | [NORA-AUTH-01: Define and implement an account-provider boundary](#nora-auth-01--define-and-implement-an-account-provider-boundary) | Partially implemented; provider contract and password-login service added, persistence remains application-owned | BASE-01; SEC-02 | L |
 | P1 | [NORA-AUTH-02: Add verification and account recovery flows](#nora-auth-02--add-verification-and-account-recovery-flows) | Missing | AUTH-01; mail and token-storage decisions | L |
 | P2 | [NORA-AUTH-03: Add optional two-factor authentication](#nora-auth-03--add-optional-two-factor-authentication) | Missing | AUTH-01; recovery-flow decision | L |
 | P2 | [NORA-AUTH-04: Offer optional Nora Auth scaffolding](#nora-auth-04--offer-optional-nora-auth-scaffolding) | Blocked by a decision/dependency | AUTH-01; AUTH-02; package-boundary decision | M/L |
@@ -426,9 +426,12 @@ out per item.
 
 - **Problem / current status:** Nora has `PasswordHasher`, `SessionManager`,
   `SessionAuthenticator`, `AuthenticatorInterface`, `AuthenticatableInterface`,
-  CSRF and `Gate`. `SessionAuthenticator` delegates lookup to an application
-  callback; there is no user repository, account lifecycle, registration,
-  credential verification flow, or policy registry tied to accounts.
+  CSRF and `Gate`. `AccountProviderInterface`,
+  `PasswordAccountInterface`, and `PasswordLoginService` now provide an
+  application-owned password credential boundary with fixed-window throttling,
+  generic credential rejection, disabled-account rejection, and password
+  rehashing. There is still no built-in provider/persistence schema,
+  registration, verification/reset flow, or policy registry tied to accounts.
 - **Scope / out of scope:** Define the minimum account identity/repository
   contract and session login/logout flow, password hashing/rehash policy,
   account status, session rotation/invalidation, authorization integration,
