@@ -32,8 +32,9 @@ rollback succeeds. If rollback fails, the rollback failure's exception class
 is logged and the outer transaction is prevented from committing. When a
 transaction was opened directly on the PDO instance, Nora uses a savepoint
 rather than taking ownership of the outer transaction. Migrations are named
-`YYYY_description.php` and return a `MigrationInterface`. The runner tracks
-applied names and batches in `nora_migrations`.
+`YYYY_description.php` and return a `MigrationInterface`. The runner discovers
+and executes migrations in lexicographical filename order; migration status
+uses the same order. It tracks applied names and batches in `nora_migrations`.
 
 MySQL DDL commonly auto-commits. The migration runner avoids claiming that a
 MySQL DDL migration is atomic; a failure can leave schema changes without a

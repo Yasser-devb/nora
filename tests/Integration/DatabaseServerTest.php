@@ -87,8 +87,8 @@ final class DatabaseServerTest extends TestCase
         $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'nora-migrations-' . $suffix;
         $successTable = 'nora_test_migration_success_' . $suffix;
         $failureTable = 'nora_test_migration_failure_' . $suffix;
-        $successName = gmdate('YmdHis') . '_nora_test_success_' . $suffix;
-        $failureName = gmdate('YmdHis') . '_nora_test_failure_' . $suffix;
+        $successName = '0001_nora_test_success_' . $suffix;
+        $failureName = '0001_nora_test_failure_' . $suffix;
         $successPath = $directory . DIRECTORY_SEPARATOR . $successName . '.php';
         $failurePath = $directory . DIRECTORY_SEPARATOR . $failureName . '.php';
 
@@ -131,8 +131,8 @@ final class DatabaseServerTest extends TestCase
 
             self::assertSame(
                 [
-                    ['migration' => $successName, 'applied' => true, 'batch' => $successBatch],
                     ['migration' => $failureName, 'applied' => false, 'batch' => null],
+                    ['migration' => $successName, 'applied' => true, 'batch' => $successBatch],
                 ],
                 $runner->status(),
             );
