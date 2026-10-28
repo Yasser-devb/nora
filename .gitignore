@@ -26,6 +26,7 @@
 .vscode/settings.json
 .vscode/launch.json
 .vscode/tasks.json
+/.vscode/extensions.json
 .idea/
 
 # Local private keys and generated distribution artifacts
@@ -62,3 +63,10 @@ desktop.ini
 *.sqlite3
 *.bak
 *.backup
+
+# Keep separate project implementations local; retain the extension info page
+/examples/nora-website/
+/extensions/vscode-nora/**
+!/extensions/vscode-nora/README.md
+/tests/Integration/NoraWebsiteErrorPageTest.php
+/tests/browser/nora-website.test.js

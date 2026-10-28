@@ -32,7 +32,9 @@ final class ReactiveEngine
 
     private const MAX_RENDERED_BYTES = 262144;
 
-    /** @var array<string, ReactiveComponent> */
+    private const MAX_CHILDREN_PER_PAGE = 64;
+
+    /** @var array<string, ReactiveComponent|ReactiveNestedComponentInterface> */
     private array $components = [];
 
     /** @var array<string, array<string, ReactiveAction>> */
@@ -47,7 +49,10 @@ final class ReactiveEngine
         $this->csrfTokens = new CsrfTokenManager($session);
     }
 
-    public function register(string $name, ReactiveComponent $component): self
+    public function register(
+        string $name,
+        ReactiveComponent|ReactiveNestedComponentInterface $component,
+    ): self
     {
         if (preg_match('/^[a-z][a-z0-9_-]{0,63}$/D', $name) !== 1) {
             throw new \InvalidArgumentException('A reactive component name is invalid.');
@@ -82,7 +87,10 @@ final class ReactiveEngine
         string $documentTitle = 'Nora',
     ): void
     {
-        if (!array_key_exists($componentName, $this->components)) {
+        if (
+            !array_key_exists($componentName, $this->components)
+            || !$this->components[$componentName] instanceof ReactiveComponent
+        ) {
             throw new \InvalidArgumentException('The reactive component is not registered.');
         }
         $this->install($application);
@@ -118,10 +126,15 @@ final class ReactiveEngine
         $this->assertSafeState($state);
         $pageId = bin2hex(random_bytes(24));
         $revision = 0;
-        $content = $this->renderComponent($component, $state);
+        $children = [];
+        $activeChildren = [];
+        $content = $this->renderTree($componentName, $state, [], $children, $activeChildren, '');
+        $this->disposeInactiveChildren($children, $activeChildren);
+        $this->assertPageLimits($state, $children, $content);
         $pages[$pageId] = [
             'component' => $componentName,
             'state' => $state,
+            'children' => $children,
             'revision' => $revision,
             'updated_at' => time(),
         ];
@@ -164,10 +177,12 @@ final class ReactiveEngine
         }
 
         $requiredKeys = ['page', 'action', 'revision', 'arguments'];
+        $allowedKeys = [...$requiredKeys, 'component'];
         if (
             array_is_list($payload)
-            || count($payload) !== count($requiredKeys)
-            || array_diff(array_keys($payload), $requiredKeys) !== []
+            || count($payload) < count($requiredKeys)
+            || count($payload) > count($allowedKeys)
+            || array_diff(array_keys($payload), $allowedKeys) !== []
             || array_diff($requiredKeys, array_keys($payload)) !== []
             || !is_string($payload['page'])
             || preg_match('/^[a-f0-9]{48}$/D', $payload['page']) !== 1
@@ -177,6 +192,10 @@ final class ReactiveEngine
             || $payload['revision'] < 0
             || !is_array($payload['arguments'])
             || ($payload['arguments'] !== [] && array_is_list($payload['arguments']))
+            || (array_key_exists('component', $payload) && (
+                !is_string($payload['component'])
+                || preg_match('/^[a-f0-9]{48}$/D', $payload['component']) !== 1
+            ))
         ) {
             throw new HttpException(400, 'The reactive action request has an invalid shape.');
         }
@@ -192,7 +211,31 @@ final class ReactiveEngine
             throw new RuntimeException('The stored reactive page is invalid.');
         }
 
-        $action = $this->actions[$page['component']][$payload['action']] ?? null;
+        $childId = $payload['component'] ?? null;
+        $targetName = $page['component'];
+        $targetState = $page['state'];
+        if ($childId !== null) {
+            $childRecords = $page['children'] ?? null;
+            $child = is_array($childRecords) ? ($childRecords[$childId] ?? null) : null;
+            if (
+                !is_array($child)
+                || !isset($child['component'], $child['state'], $child['props'], $child['revision'])
+                || !is_string($child['component'])
+                || !is_array($child['state'])
+                || !is_array($child['props'])
+                || !is_int($child['revision'])
+            ) {
+                throw new HttpException(404, 'The reactive component is not available in this page.');
+            }
+            $childComponent = $this->components[$child['component']] ?? null;
+            if (!$childComponent instanceof ReactiveNestedComponentInterface) {
+                throw new RuntimeException('The stored reactive child component is invalid.');
+            }
+            $targetName = $child['component'];
+            $targetState = $child['state'];
+        }
+
+        $action = $this->actions[$targetName][$payload['action']] ?? null;
         if (!$action instanceof ReactiveAction) {
             throw new HttpException(404, 'The reactive action is not available.');
         }
@@ -204,12 +247,26 @@ final class ReactiveEngine
                 'errors' => $validation->errors(),
             ], 422)->withHeader('Cache-Control', 'no-store');
         }
-        if (!$action->isAuthorized($page['state'], $payload['arguments'])) {
+        if (!$action->isAuthorized($targetState, $payload['arguments'])) {
             throw new HttpException(403, 'The reactive action request is not authorized.');
         }
 
         if ($payload['revision'] !== $page['revision']) {
-            $content = $this->renderComponent($component, $page['state']);
+            $children = $page['children'] ?? [];
+            $activeChildren = [];
+            $content = $this->renderTree(
+                $page['component'],
+                $page['state'],
+                [],
+                $children,
+                $activeChildren,
+                '',
+            );
+            $this->disposeInactiveChildren($children, $activeChildren);
+            $this->assertPageLimits($page['state'], $children, $content);
+            $page['children'] = $children;
+            $pages[$payload['page']] = $page;
+            $this->session->set(self::PAGE_SESSION_KEY, $pages);
 
             return Response::json([
                 'error' => 'The page changed before this action was applied.',
@@ -218,13 +275,34 @@ final class ReactiveEngine
             ], 409)->withHeader('Cache-Control', 'no-store');
         }
 
-        $nextState = $action->transition($page['state'], $payload['arguments']);
+        $nextState = $action->transition($targetState, $payload['arguments']);
         $this->assertSafeState($nextState);
         $nextRevision = $page['revision'] + 1;
-        $content = $this->renderComponent($component, $nextState);
+        if ($childId === null) {
+            $page['state'] = $nextState;
+        } else {
+            $page['children'][$childId]['state'] = $nextState;
+            $page['children'][$childId]['revision']++;
+            $page['children'][$childId]['updated_at'] = time();
+        }
+        $page['revision'] = $nextRevision;
+        $page['updated_at'] = time();
+        $children = $page['children'] ?? [];
+        $activeChildren = [];
+        $content = $this->renderTree(
+            $page['component'],
+            $page['state'],
+            [],
+            $children,
+            $activeChildren,
+            '',
+        );
+        $this->disposeInactiveChildren($children, $activeChildren);
+        $this->assertPageLimits($page['state'], $children, $content);
         $pages[$payload['page']] = [
             'component' => $page['component'],
-            'state' => $nextState,
+            'state' => $page['state'],
+            'children' => $children,
             'revision' => $nextRevision,
             'updated_at' => time(),
         ];
@@ -296,14 +374,192 @@ final class ReactiveEngine
             . '<div data-nora-status role="status" aria-live="polite"></div></main>';
     }
 
-    private function renderComponent(ReactiveComponent $component, array $state): string
+    /**
+     * @param array<string, mixed> $state
+     * @param array<string, mixed> $props
+     * @param array<string, array<string, mixed>> $children
+     * @param array<string, true> $activeChildren
+     */
+    private function renderTree(
+        string $componentName,
+        array $state,
+        array $props,
+        array &$children,
+        array &$activeChildren,
+        string $parentPath,
+    ): string {
+        $component = $this->components[$componentName] ?? null;
+        if ($component instanceof ReactiveNestedComponentInterface) {
+            $html = $component->render($state, $props);
+            $definitions = $component->children($state, $props);
+        } elseif ($component instanceof ReactiveComponent) {
+            $html = $component->render($state);
+            $definitions = $component instanceof ReactiveParentComponentInterface
+                ? $component->children($state)
+                : [];
+        } else {
+            throw new RuntimeException('A reactive component is not registered.');
+        }
+
+        if (!is_array($definitions)) {
+            throw new RuntimeException('A reactive component returned an invalid child collection.');
+        }
+        if (count($definitions) > self::MAX_CHILDREN_PER_PAGE) {
+            throw new HttpException(500, 'The reactive component tree exceeds its size limit.');
+        }
+        $seenKeys = [];
+        foreach ($definitions as $definition) {
+            if (!$definition instanceof ReactiveChildDefinition) {
+                throw new RuntimeException('Reactive children must use explicit child definitions.');
+            }
+            $key = $definition->key();
+            if (isset($seenKeys[$key])) {
+                throw new RuntimeException('Reactive child keys must be unique within their parent.');
+            }
+            $seenKeys[$key] = true;
+
+            $childPath = $parentPath === '' ? $key : $parentPath . '/' . $key;
+            $childName = $definition->component();
+            $childComponent = $this->components[$childName] ?? null;
+            if (!$childComponent instanceof ReactiveNestedComponentInterface) {
+                throw new RuntimeException('A nested child must be a registered nested component.');
+            }
+
+            $props = $definition->props();
+            $rules = $childComponent->propsRules();
+            $allowedProps = [];
+            foreach (array_keys($rules) as $field) {
+                $allowedProps[explode('.', $field, 2)[0]] = true;
+            }
+            foreach (array_keys($props) as $propName) {
+                if (!is_string($propName) || !isset($allowedProps[$propName])) {
+                    throw new RuntimeException('A reactive child received an undeclared prop.');
+                }
+            }
+            $propValidation = (new \Nora\Validation\Validator())->validate($props, $rules);
+            if (!$propValidation->isValid()) {
+                throw new RuntimeException('A reactive child received invalid props.');
+            }
+            $this->assertSafeState($props);
+
+            $childId = null;
+            foreach ($children as $existingId => $existing) {
+                if (($existing['path'] ?? null) === $childPath) {
+                    $childId = $existingId;
+                    break;
+                }
+            }
+            if (
+                $childId !== null
+                && (
+                    ($children[$childId]['component'] ?? null) !== $childName
+                    || ($children[$childId]['props'] ?? null) !== $props
+                )
+            ) {
+                $this->disposeChild($childId, $children[$childId]);
+                unset($children[$childId]);
+                $childId = null;
+            }
+
+            if ($childId === null) {
+                $childId = bin2hex(random_bytes(24));
+                $childState = $childComponent->initialState($props);
+                $this->assertSafeState($childState);
+                $children[$childId] = [
+                    'path' => $childPath,
+                    'key' => $key,
+                    'component' => $childName,
+                    'props' => $props,
+                    'state' => $childState,
+                    'revision' => 0,
+                    'updated_at' => time(),
+                ];
+                if ($childComponent instanceof ReactiveComponentLifecycleInterface) {
+                    $childComponent->mounted($childId, $props, $childState);
+                }
+            }
+
+            $activeChildren[$childId] = true;
+            $childRecord = $children[$childId];
+            $childHtml = $this->renderTree(
+                $childName,
+                $childRecord['state'],
+                $props,
+                $children,
+                $activeChildren,
+                $childPath,
+            );
+            $marker = ReactiveChildDefinition::placeholder($key);
+            if (substr_count($html, $marker) !== 1) {
+                throw new RuntimeException('Each reactive child placeholder must appear exactly once.');
+            }
+            $wrapper = '<div data-nora-child-id="' . $childId
+                . '" data-nora-child-type="' . htmlspecialchars($childName, ENT_QUOTES, 'UTF-8')
+                . '" data-nora-child-key="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '">'
+                . $childHtml . '</div>';
+            $html = str_replace($marker, $wrapper, $html);
+        }
+
+        return $html;
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $children
+     * @param array<string, true> $activeChildren
+     */
+    private function disposeInactiveChildren(array &$children, array $activeChildren): void
     {
-        $html = $component->render($state);
+        foreach ($children as $childId => $child) {
+            if (!isset($activeChildren[$childId])) {
+                $this->disposeChild($childId, $child);
+                unset($children[$childId]);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $child
+     */
+    private function disposeChild(string $childId, array $child): void
+    {
+        $component = $this->components[$child['component'] ?? ''] ?? null;
+        if (
+            $component instanceof ReactiveComponentLifecycleInterface
+            && is_array($child['props'] ?? null)
+            && is_array($child['state'] ?? null)
+        ) {
+            $component->disposed($childId, $child['props'], $child['state']);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $state
+     * @param array<string, array<string, mixed>> $children
+     */
+    private function assertPageLimits(array $state, array $children, string $html): void
+    {
+        if (count($children) > self::MAX_CHILDREN_PER_PAGE) {
+            throw new HttpException(500, 'The reactive component tree exceeds its size limit.');
+        }
         if (strlen($html) > self::MAX_RENDERED_BYTES) {
             throw new HttpException(500, 'The reactive component output is too large.');
         }
 
-        return $html;
+        $pageState = ['root' => $state];
+        foreach ($children as $identity => $child) {
+            $pageState['children'][$identity] = [
+                'props' => $child['props'],
+                'state' => $child['state'],
+            ];
+        }
+        try {
+            $encoded = json_encode($pageState, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new \InvalidArgumentException('Reactive page state cannot be encoded safely.', 0, $exception);
+        }
+        if (strlen($encoded) > self::MAX_STATE_BYTES) {
+            throw new \InvalidArgumentException('Reactive page state exceeds the configured size limit.');
+        }
     }
 
     /**
@@ -318,6 +574,7 @@ final class ReactiveEngine
 
         $now = time();
         $originalCount = count($pages);
+        $changed = false;
         foreach ($pages as $pageId => $page) {
             if (
                 !is_string($pageId)
@@ -328,10 +585,21 @@ final class ReactiveEngine
                 throw new RuntimeException('A stored reactive page record is invalid.');
             }
             if ($page['updated_at'] < $now - self::PAGE_TTL_SECONDS) {
+                foreach (is_array($page['children'] ?? null) ? $page['children'] : [] as $childId => $child) {
+                    if (is_string($childId) && is_array($child)) {
+                        $this->disposeChild($childId, $child);
+                    }
+                }
                 unset($pages[$pageId]);
+                $changed = true;
+                continue;
+            }
+            if (!isset($page['children'])) {
+                $pages[$pageId]['children'] = [];
+                $changed = true;
             }
         }
-        if (count($pages) !== $originalCount) {
+        if ($changed || count($pages) !== $originalCount) {
             $this->session->set(self::PAGE_SESSION_KEY, $pages);
         }
 

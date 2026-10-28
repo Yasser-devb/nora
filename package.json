@@ -2,7 +2,7 @@
   "name": "nora-framework-browser-tests",
   "private": true,
   "scripts": {
-    "test:browser": "node --test tests/browser/*.test.js"
+    "test:browser": "node --test tests/browser/reactive.test.js"
   },
   "devDependencies": {
     "playwright": "^1.64.1"

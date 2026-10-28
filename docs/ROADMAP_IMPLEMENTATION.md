@@ -34,13 +34,13 @@ readiness.
 | P0 | [NORA-BASE-02: Automate clean package-consumer verification](#nora-base-02--automate-clean-package-consumer-verification) | Implemented but insufficiently tested | None | M |
 | P0 | [NORA-SEC-01: Close request and rendering security-boundary gaps](#nora-sec-01--close-request-and-rendering-security-boundary-gaps) | Partially implemented | None | M/L |
 | P1 | [NORA-OPS-01: Provide a disposable Docker development database](#nora-ops-01--provide-a-disposable-docker-development-database) | Missing | BASE-01 | M |
-| P1 | [NORA-SEC-02: Add a storage-backed rate limiter](#nora-sec-02--add-a-storage-backed-rate-limiter) | Missing | SEC-01; storage decision | M/L |
-| P1 | [NORA-UPL-01: Add bounded upload intake and storage adapters](#nora-upl-01--add-bounded-upload-intake-and-storage-adapters) | Missing | SEC-01; storage decision | L |
-| P1 | [NORA-DB-01: Add safe CRUD query construction](#nora-db-01--add-safe-crud-query-construction) | Partially implemented | BASE-01 | M |
-| P1 | [NORA-DB-02: Specify transaction and migration recovery semantics](#nora-db-02--specify-transaction-and-migration-recovery-semantics) | Partially implemented | BASE-01 | M |
-| P2 | [NORA-DB-03: Add opt-in query diagnostics](#nora-db-03--add-opt-in-query-diagnostics) | Partially implemented | DB-01; privacy policy | S/M |
-| P1 | [NORA-REACT-01: Define independent nested reactive components](#nora-react-01--define-independent-nested-reactive-components) | Missing | SEC-01; existing reactive slice | L |
-| P1 | [NORA-REACT-02: Add server-authoritative reactive forms](#nora-react-02--add-server-authoritative-reactive-forms) | Partially implemented | REACT-01; existing Validator | M/L |
+| P1 | [NORA-SEC-02: Add a storage-backed rate limiter](#nora-sec-02--add-a-storage-backed-rate-limiter) | Implemented; local tests pass | SEC-01 | M/L |
+| P1 | [NORA-UPL-01: Add bounded upload intake and storage adapters](#nora-upl-01--add-bounded-upload-intake-and-storage-adapters) | Partially implemented; Request integration, batch cleanup, and authorization gate unit-tested; live multipart/deployment/streaming checks pending | SEC-01; storage decision | L |
+| P1 | [NORA-DB-01: Add safe CRUD query construction](#nora-db-01--add-safe-crud-query-construction) | Implemented; unit tests pass; live DB effects unverified | BASE-01 | M |
+| P1 | [NORA-DB-02: Specify transaction and migration recovery semantics](#nora-db-02--specify-transaction-and-migration-recovery-semantics) | Implemented; unit coverage; live DB unverified | BASE-01 | M |
+| P2 | [NORA-DB-03: Add opt-in query diagnostics](#nora-db-03--add-opt-in-query-diagnostics) | Implemented; unit tests pass | DB-01; privacy policy | S/M |
+| P1 | [NORA-REACT-01: Define independent nested reactive components](#nora-react-01--define-independent-nested-reactive-components) | Implemented; focused unit/integration and local Chromium tests pass | SEC-01; existing reactive slice | L |
+| P1 | [NORA-REACT-02: Add server-authoritative reactive forms](#nora-react-02--add-server-authoritative-reactive-forms) | Implemented and locally browser-tested; native POST fallback remains application-owned | REACT-01; existing Validator | M/L |
 | P1 | [NORA-AUTH-01: Define and implement an account-provider boundary](#nora-auth-01--define-and-implement-an-account-provider-boundary) | Partially implemented | BASE-01; SEC-02 | L |
 | P1 | [NORA-AUTH-02: Add verification and account recovery flows](#nora-auth-02--add-verification-and-account-recovery-flows) | Missing | AUTH-01; mail and token-storage decisions | L |
 | P2 | [NORA-AUTH-03: Add optional two-factor authentication](#nora-auth-03--add-optional-two-factor-authentication) | Missing | AUTH-01; recovery-flow decision | L |
@@ -178,212 +178,247 @@ out per item.
 
 ### NORA-SEC-02 — Add a storage-backed rate limiter
 
-- **Problem / current status:** There is no rate-limiting middleware or shared
-  counter contract. Authentication endpoints and other costly routes will
-  need abuse controls; CSRF is not rate limiting.
-- **Scope / out of scope:** Define a limiter contract with bounded key
-  dimensions, configurable limit/window, atomic increment and expiry, and an
-  explicit result for allowed, denied, retry-after, and backend failure.
-  Implement one dependable backend only after choosing it (for example,
-  PDO-backed storage with the verified DB layer). Leave Redis and distributed
-  provider adapters optional. Do not claim to stop volumetric denial of
-  service.
-- **Dependencies / API:** Depends on the storage backend decision and SEC-01
-  request boundary. Proposed API only:
+- **Problem / current status:** Implemented as an opt-in fixed-window limiter
+  with a file-backed store and middleware. It is not automatically registered.
+- **Scope / out of scope:** `RateLimitStoreInterface` defines atomic bucket
+  updates and cleanup; `FileRateLimitStore` uses hashed bucket filenames,
+  exclusive file locking, and atomic replacement. No PDO, Redis, distributed,
+  or automatic route registration is provided. This feature does not stop
+  volumetric denial of service.
+- **Dependencies / API:** Uses the existing SEC-01 request/middleware
+  boundaries. Implemented API:
   ```php
-  // Proposal; no such Nora API currently exists.
-  $result = $limiter->consume($key, limit: 10, windowSeconds: 60);
+  $store = new FileRateLimitStore($storageDirectory);
+  $limiter = new RateLimiter($store, limit: 10, windowSeconds: 60);
+  $middleware = new RateLimitMiddleware($limiter, $keyResolver);
   ```
-- **Security / compatibility:** Avoid raw IP as an untrusted key without
-  explicit trusted-proxy configuration; use normalized route/account keys,
-  bound key lengths, atomic updates, and fail-closed/open behavior chosen per
-  endpoint. Do not log secrets or full credential-bearing identifiers.
+- **Security / compatibility:** Keys are restricted to 128 safe ASCII
+  characters and SHA-256 hashed before storage. The file adapter serializes
+  access with a directory-wide lock and is intended for a single host or a
+  shared filesystem only when locking semantics are verified. Middleware does
+  not derive keys from IP or forwarded headers and returns 503 on storage
+  failure; there is no fail-open mode.
 - **Tests / done when:** Window boundaries, concurrent increments, expiry,
   key spoofing/proxy handling, backend outage policy, 429 response and
-  `Retry-After` are covered by unit and real-backend tests.
+  `Retry-After` have unit coverage, including a local multiprocess locking
+  test. The symlink-cleanup and actual permission-denial tests require OS
+  capabilities that may be unavailable; shared-filesystem locking has not
+  been verified.
 - **Priority / impact / effort:** P1; high abuse-resistance impact; M/L.
-  Uncertainty: atomic implementation and backend availability semantics.
-- **Deliverables:** Limiter interface/adapter, middleware, config contract,
-  unit/integration/concurrency tests, and security documentation.
+  Remaining operational concern: deployment-specific filesystem permissions
+  and shared-volume locking must be verified by application operators.
+- **Deliverables:** Implemented store contract/adapter, middleware,
+  deterministic tests, API and security documentation.
 
 ### NORA-UPL-01 — Add bounded upload intake and storage adapters
 
-- **Problem / current status:** No upload abstraction, storage adapter, or
-  upload-specific request path was found. Generic request bodies are currently
-  read into memory without a framework-wide cap.
-- **Scope / out of scope:** Separate HTTP upload validation from storage.
-  Enforce request and per-file size limits, upload error checks, actual
-  content/MIME inspection (not filename trust), randomized server-side names,
-  path containment, safe filesystem permissions, and storage outside the
-  executable web root by default. Define an adapter contract and first
-  private local-filesystem adapter. Treat malware scanning and cloud storage
-  as optional adapters with explicit failure behavior. Do not add image
-  transformation or public CDN URLs in the first version.
-- **Dependencies / API:** Depends on SEC-01 ingress limits and an approved
-  private-storage policy. Proposed API only:
+- **Problem / current status:** Implemented `UploadedFile`, `UploadPolicy`,
+  the `Request::file()` / `files()` PHP multipart file bag,
+  `PrivateFileStorageInterface`, `LocalPrivateFileStorage`, an optional
+  `AuthorizedPrivateFileReader` gate, and `PrivateUploadService`. The upload
+  service validates batches before writing and removes previous successful
+  writes if a later write fails. The adapter verifies its resolved path is
+  outside `DOCUMENT_ROOT` when PHP provides that value. Upload metadata and
+  ownership persistence remain application-owned.
+- **Scope / out of scope:** The implementation validates PHP upload status,
+  per-file and aggregate file bytes, detected MIME against an extension/MIME
+  allowlist, and stores under random IDs in a private local directory. The
+  source file device, inode, and size are rechecked when copied. The reader
+  invokes application authorization before opening the identifier. It does
+  not implement quotas, retention scheduling, malware scanning, cloud
+  storage, transformations, metadata persistence, or public URLs.
+- **Dependencies / API:** Depends on SEC-01 upstream limits; `fileinfo` is
+  required at runtime. Implemented API:
   ```php
-  // Proposal; no upload or storage API currently exists.
-  $stored = $storage->put($validatedUpload, visibility: 'private');
+  $stored = $uploadService->store($request->file('document'));
   ```
 - **Security / compatibility:** Never use client filenames as storage paths;
-  defend against traversal, polyglots, MIME spoofing, executable content,
-  symlink races, and authorization bypass on retrieval. A storage identifier
-  must not itself grant public access.
-- **Tests / done when:** Tests cover oversized request/file, malformed upload,
-  spoofed content type, traversal names, randomized names, permission errors,
-  cleanup on partial failure, and access control. Integration tests assert
-  stored files are outside the web root and are not executable/downloadable
-  without authorization.
+  defend against traversal, MIME spoofing, inconsistent source files, and
+  authorization bypass on retrieval. A storage identifier must not itself
+  grant public access. Document-root enforcement depends on
+  `$_SERVER['DOCUMENT_ROOT']`; deployment ACLs and upstream/PHP limits remain
+  operational controls.
+- **Tests / done when:** Unit tests cover size limits, PHP upload errors,
+  malformed metadata, MIME spoofing, traversal-style filenames, randomized
+  storage IDs, path identifier rejection, partial cleanup, deletion
+  boundaries, PHP-parsed single/multiple request fields, document-root
+  rejection, batch cleanup after later storage failure, and
+  authorization-before-open behavior. Runtime multipart
+  handling against a real HTTP server, OS permission enforcement, large-file
+  streaming, and deployment ACLs remain unverified.
 - **Priority / impact / effort:** P1; high security and application utility
   impact; L. Uncertainty: cross-platform filesystem semantics and PHP upload
   behavior.
-- **Deliverables:** Upload value object/validator, storage interface and local
-  adapter, request integration, cleanup policy, security tests, and usage docs.
+- **Deliverables:** Upload value object/validator, Request file bag, storage
+  interface/local adapter, upload coordinator, authorization gate, tests, and API/security docs.
+  Framework streaming responses, persistent metadata/ownership, cleanup
+  policy, and production multipart/deployment verification remain incomplete.
 
 ## Phase 2 — Database capabilities
 
 ### NORA-DB-01 — Add safe CRUD query construction
 
-- **Problem / current status:** `PdoConnection::execute()` can run parameterized
-  SQL, but `QueryBuilder` currently constructs only SELECT statements. CRUD
-  callers must currently write trusted SQL themselves.
-- **Scope / out of scope:** Add focused insert/update/delete builders with
-  parameterized values, conservative identifier validation, deterministic
-  parameter ordering, explicit empty-update/delete guards, and documented
-  affected-row semantics. Do not add joins, relationship loading, arbitrary
-  expressions, or an ORM in this task.
-- **Dependencies / API:** Depends on BASE-01 live-driver behavior. Proposed
-  API only:
+- **Problem / current status:** Implemented `QueryBuilder` factories for
+  SELECT, INSERT, UPDATE, and DELETE; live MySQL effects remain unverified.
+- **Scope / out of scope:** Mutation values are parameterized; identifiers
+  and operators are constrained; updates/deletes require predicates; parameter
+  order is deterministic. Affected rows follow PDO driver semantics. Joins,
+  arbitrary expressions, relationship loading, and ORM behavior are out of
+  scope.
+- **Dependencies / API:** Implemented API:
   ```php
-  // Proposal; current QueryBuilder exposes select() only.
-  $query = InsertQuery::into('users')->values(['email' => $email]);
-  [$sql, $bindings] = $query->toSql();
-  $connection->execute($sql, $bindings);
+  $query = QueryBuilder::insert('users', ['email' => $email]);
+  $connection->executeBuilder($query);
   ```
 - **Security / compatibility:** Bind every data value; allowlist/validate all
   identifiers; reject empty predicates for destructive updates/deletes unless
   an explicitly named all-rows operation is approved. Do not interpolate
   user-controlled SQL fragments.
 - **Tests / done when:** Unit tests assert exact SQL and bindings, invalid
-  identifiers and unsupported operations fail closed, and MySQL integration
-  tests verify insert/update/delete effects and rollback.
+  identifiers and unsupported operations fail closed. Live database tests for
+  insert/update/delete effects are pending the deferred MySQL verification.
 - **Priority / impact / effort:** P1; high core capability and injection
   prevention impact; M.
-- **Deliverables:** Query builder classes, focused unit/integration tests,
-  API reference updates, and CRUD usage examples.
+- **Deliverables:** CRUD builders, focused unit coverage, API reference, and
+  usage example. Live-driver acceptance remains pending.
 
 ### NORA-DB-02 — Specify transaction and migration recovery semantics
 
-- **Problem / current status:** `PdoConnection::transaction()` owns a single
-  begin/commit/rollback lifecycle; nested calls do not create savepoints.
-  `MigrationRunner` can apply and report migrations, while `down()` exists on
-  `MigrationInterface` but no rollback command is exposed. MySQL DDL may
-  auto-commit; migration tests currently use a PDO double.
-- **Scope / out of scope:** Specify nested transaction behavior (savepoints or
-  explicit rejection), exception propagation, migration failure states,
-  interrupted DDL recovery, and whether/when rollback is supported. First
-  test and document current behavior; implement only the agreed semantics.
-  Do not claim schema rollback is atomic on MySQL.
+- **Problem / current status:** `PdoConnection::transaction()` now uses
+  savepoints for nested callbacks. A nested rollback failure is logged and
+  marks the outer wrapper-managed transaction uncommittable, even if its
+  callback catches the nested exception. The migration runner applies and
+  reports migrations; `down()` exists but no rollback command is exposed.
+  MySQL DDL may auto-commit.
+- **Scope / out of scope:** Failed MySQL DDL may leave schema changes without
+  a history row. The runner does not perform automatic schema rollback.
+  Recovery requires operator inspection/reconciliation before retrying.
+  Savepoint behavior has PDO-double coverage; real-driver semantics remain
+  unverified locally.
 - **Dependencies / API:** Depends on BASE-01 and DB-01 where migration
   operations rely on writes.
 - **Security / compatibility:** Never mark a migration as applied before its
-  expected operation completes. Preserve the original exception while
-  reporting rollback failures. Destructive rollback requires explicit operator
-  intent and a tested backup/restore policy.
-- **Tests / done when:** Real MySQL tests cover successful/repeated runs,
-  thrown failures before and after DDL, status consistency, and any approved
-  savepoint behavior. Docs state exact recovery steps and unsupported
-  atomicity assumptions.
+  expected operation completes. Preserve the original callback exception
+  while reporting rollback failures; do not allow a wrapper-managed outer
+  transaction to commit after a failed nested rollback. Destructive rollback
+  requires explicit operator intent and a tested backup/restore policy.
+- **Tests / done when:** Unit tests cover nested savepoint recovery, exception
+  propagation, logging of rollback failure, and outer-transaction rejection
+  after failed nested rollback. Existing live MySQL tests cover repeated
+  migration runs and failure after DDL but were skipped locally due to no
+  available test server. Docs state recovery steps and atomicity limits.
 - **Priority / impact / effort:** P1; high data-integrity impact; M.
   Uncertainty: MySQL DDL and MariaDB version behavior.
-- **Deliverables:** Transaction/migration tests, selected implementation
-  changes, CLI documentation, and recovery guidance.
+- **Deliverables:** Savepoint transaction behavior, tests, and recovery
+  guidance. Real-driver verification remains pending.
 
 ### NORA-DB-03 — Add opt-in query diagnostics
 
-- **Problem / current status:** `PdoConnection` logs a SQL hash and length,
-  without bound values or elapsed duration. There is no query profiler or
-  slow-query report.
-- **Scope / out of scope:** Add an opt-in timing/diagnostic hook with monotonic
-  duration, operation label, and configurable slow threshold. Keep diagnostics
-  aggregate or explicitly redacted; do not retain SQL parameter values or add
-  a database-backed dashboard.
-- **Dependencies / API:** Depends on DB-01 and an approved logging/privacy
-  policy.
-- **Security / compatibility:** Never log bindings, passwords, raw secrets,
-  or high-cardinality personal data. Ensure disabled diagnostics add no
-  externally observable behavior and contain failures explicitly.
-- **Tests / done when:** A fake clock/logger proves timing and threshold
-  behavior; regression tests verify bindings never appear in logs; overhead
-  is measured and documented.
+- **Problem / current status:** Implemented as optional
+  `QueryDiagnostics`, injected into `PdoConnection` without changing existing
+  constructor calls.
+- **Scope / out of scope:** Uses monotonic nanoseconds, operation labels,
+  aggregate SQL hash/length, and a configurable threshold. It does not retain
+  SQL text or bindings and has no dashboard.
+- **Dependencies / API:** Implemented API:
+  `new QueryDiagnostics($logger, slowQueryThresholdNanoseconds: 50_000_000)`.
+- **Security / compatibility:** Disabled by default. Slow diagnostics log
+  only operation label, SQL hash, SQL length, and duration; no bindings or raw
+  SQL are emitted. Logger failures remain explicit.
+- **Tests / done when:** Fake clock/logger tests verify threshold and duration
+  behavior and confirm no query values or SQL text appear in diagnostic
+  records. No performance benchmark has been run.
 - **Priority / impact / effort:** P2; medium debugging/performance impact;
   S/M. Uncertainty: useful threshold and low-overhead event contract.
-- **Deliverables:** Diagnostics contract, tests, configuration documentation,
-  and an example logger sink.
+- **Deliverables:** Implemented diagnostic hook, tests, API documentation, and
+  example construction. Performance benchmarking remains unverified.
 
 ## Phase 3 — Reactive application development
 
 ### NORA-REACT-01 — Define independent nested reactive components
 
-- **Problem / current status:** `ReactiveEngine` registers one page component
-  per page and stores page-authoritative state in the session. Current adjacent
-  template sections share that state; there is no independently owned nested
-  component state, props contract, or lifecycle API. `ReactiveComponent`
-  accepts array state and returns trusted HTML.
-- **Scope / out of scope:** Design an explicit component tree with stable
-  server-issued identities, validated props, isolated or declared shared
-  state, lifecycle/disposal rules, and deterministic reconciliation. Keep
-  server state authoritative. Do not add a virtual DOM rewrite, cross-page
-  shared state, or persistent sockets before measurable need.
-- **Dependencies / API:** Depends on SEC-01 and current reactive security
-  regressions. Requires a public API compatibility decision because the
-  existing prototype is experimental.
+- **Problem / current status:** Implemented `ReactiveParentComponentInterface`,
+  `ReactiveChildDefinition`, `ReactiveNestedComponentInterface`, and optional
+  `ReactiveComponentLifecycleInterface`. The engine validates props, stores
+  isolated child state per session-owned page, assigns random child IDs,
+  reconciles unchanged key/type/props deterministically, and disposes removed
+  or expired children. Existing root component APIs and root action payloads
+  remain compatible.
+- **Scope / out of scope:** The implementation supports recursively declared
+  child trees, page-local independent state and lifecycle callbacks. It has no
+  cross-page shared state, virtual DOM rewrite, computed values, or persistent
+  sockets.
+- **Dependencies / API:** Implemented as additive interfaces and
+  `ReactiveChildDefinition::placeholder($key)`; existing `ReactiveComponent`
+  page registrations remain usable unchanged.
 - **Security / compatibility:** Child identity and ownership must not be
   accepted from client authority; every child action rechecks authorization,
   CSRF, revision and payload limits. Escape output and cap aggregate
   per-session state/render size.
-- **Tests / done when:** PHP and browser tests prove independent state,
-  duplicate/replayed/stale child requests are rejected, forged child IDs cannot
-  cross component boundaries, disposal frees state, and focus/keyboard
-  accessibility regressions are covered on supported browsers.
+- **Tests / done when:** Unit/integration tests prove independent state,
+  stable child identities, authorization denial, forged and cross-page child
+  ID rejection, stale child request rejection, and lifecycle disposal. A local
+  Chromium browser test exercises independent child updates and rejects stale,
+  forged, and unauthorized requests. A formal supported-browser matrix and
+  hosted CI results are not established.
 - **Priority / impact / effort:** P1; high UX/security impact; L. Uncertainty:
   component identity, state-sharing semantics, and migration from the current
   experimental API.
-- **Deliverables:** Component/props/state contracts, engine and runtime
-  changes, lifecycle tests, browser tests, and revised
+- **Deliverables:** Implemented component/props/state contracts, engine and
+  runtime changes, lifecycle tests, browser tests, and revised
   `architecture/REACTIVE_UI_ENGINE.md`.
 
 ### NORA-REACT-02 — Add server-authoritative reactive forms
 
-- **Problem / current status:** `Validator` supports built-in and custom rules,
-  and reactive actions validate allowlisted arguments. There is no form
-  binding model, retained validation-error state, accessible field-level
-  feedback contract, or progressive enhancement flow.
+- **Problem / current status:** Implemented as an opt-in browser convention
+  over the existing reactive action endpoint. Forms collect only explicitly
+  bound fields; Nora validates the action allowlist on the server and returns
+  field errors on 422. Accessible field feedback and pending, invalid,
+  success, and failed states are locally browser-tested.
 - **Scope / out of scope:** Build on existing `Validator` and action argument
   validation. Define allowlisted fields, server-side normalization rules,
   error-to-field mapping, accessible summaries/announcements, submission
   pending/failure states, and a non-JavaScript POST fallback where practical.
-  Do not trust browser validity or client-submitted state; defer file inputs
-  until UPL-01.
-- **Dependencies / API:** Depends on REACT-01's state/props contract and the
-  existing `Nora\Validation\Validator`; upload fields depend on UPL-01.
-  Proposed API only:
+  Do not trust browser validity or client-submitted state. Reactive file
+  bindings remain unsupported; upload intake is a separate API.
+- **Dependencies / API:** REACT-01's state/props contract and existing
+  `Validator` are implemented. The actual API is HTML attributes plus the
+  existing action contract:
   ```php
-  // Proposal; no form component API currently exists.
-  $form->field('email', rules: ['required', 'email']);
+  // In render(): use data-nora-form, data-nora-action, and bind each
+  // supported control with matching name and data-nora-field attributes.
+  'save' => \Nora\Reactive\ReactiveAction::publicAction(
+      ['email' => 'required|email'],
+      static fn (array $state, array $arguments): array => [
+          ...$state,
+          'email' => $arguments['email'],
+      ],
+  ),
   ```
-- **Security / compatibility:** Revalidate every submission on the server,
-  reject unknown fields, enforce CSRF/authorization/revision checks, bound
-  payloads and error output, escape values/messages, and avoid returning
-  secret inputs (passwords/tokens) on validation errors.
-- **Tests / done when:** Unit and browser tests cover invalid/valid submissions,
-  unknown/forged fields, CSRF failures, stale revisions, escaped values,
-  keyboard and screen-reader error announcement, and server-side behavior
-  without JavaScript.
+- **Security / compatibility:** Every submission uses the same server-side
+  action validation, authorization, CSRF/origin, request-size, and revision
+  checks as other reactive actions. Unknown arguments are rejected. The runtime
+  uses text nodes for validation messages, rejects file controls, and does not
+  echo submitted values in protocol errors. Application transitions must not
+  retain passwords or tokens in rendered state. Controls with
+  `data-nora-field` must be supported input/select/textarea elements whose
+  `name` matches the binding; multiple selects and file inputs are unsupported.
+- **Tests / done when:** A local Chromium test verifies invalid/valid
+  submission, unknown-field rejection, accessible field errors and summary,
+  pending/success/failure states, keyboard submission, focus/value
+  preservation, and absence of password echo. Existing integration tests
+  exercise the shared CSRF, stale revision, action authorization, and unknown
+  argument protections. The framework does not provide a separate native POST
+  handler: with JavaScript disabled, the form's `method`/`action` performs a
+  normal application route submission, which the application must implement
+  and validate independently. A no-JavaScript POST route was not browser-tested.
 - **Priority / impact / effort:** P1; high form usability and security impact;
   M/L. Uncertainty: accessible component design and progressive enhancement.
-- **Deliverables:** Form state/validation contract, reusable error rendering,
-  browser fixtures, security regressions, and tutorial/API documentation.
+- **Deliverables:** Implemented bound form handling in the browser runtime,
+  reuse of the server action validator, accessible error feedback, browser
+  fixture, and API/architecture documentation. The native POST fallback remains
+  an application responsibility; cross-browser accessibility and hosted CI
+  results are not established.
 
 ## Phase 4 — Authentication ecosystem
 

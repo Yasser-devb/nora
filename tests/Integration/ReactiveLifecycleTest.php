@@ -8,8 +8,12 @@ use Nora\Core\Application;
 use Nora\Http\Request;
 use Nora\Http\Response;
 use Nora\Reactive\ReactiveAction;
+use Nora\Reactive\ReactiveChildDefinition;
 use Nora\Reactive\ReactiveComponent;
+use Nora\Reactive\ReactiveComponentLifecycleInterface;
 use Nora\Reactive\ReactiveEngine;
+use Nora\Reactive\ReactiveNestedComponentInterface;
+use Nora\Reactive\ReactiveParentComponentInterface;
 use Nora\Routing\MiddlewareInterface;
 use Nora\Security\SessionManager;
 use Nora\View\TemplateRenderer;
@@ -339,6 +343,120 @@ final class ReactiveLifecycleTest extends TestCase
         self::assertStringNotContainsString('<img', $html);
     }
 
+    public function testNestedChildrenHaveIndependentServerStateAndStableServerIssuedIdentity(): void
+    {
+        [$app, , $child] = $this->nestedApplication();
+        $page = $app->handle(Request::fromUri('GET', '/nested'));
+        $pageId = $this->attribute($page->body(), 'data-nora-page');
+        $csrf = $this->metaContent($page->body(), 'nora-csrf');
+        $alphaId = $this->childId($page->body(), 'alpha');
+        $betaId = $this->childId($page->body(), 'beta');
+        self::assertContains($alphaId, $child->mountedIds());
+        self::assertContains($betaId, $child->mountedIds());
+
+        $alpha = $app->handle($this->actionRequest(
+            $pageId,
+            $csrf,
+            0,
+            ['amount' => 1],
+            'increment',
+            $alphaId,
+        ));
+        self::assertSame(200, $alpha->status());
+        self::assertSame('1', $this->childOutput($this->json($alpha->body())['html'], 'alpha'));
+        self::assertSame('0', $this->childOutput($this->json($alpha->body())['html'], 'beta'));
+        self::assertSame($alphaId, $this->childId($this->json($alpha->body())['html'], 'alpha'));
+        self::assertSame($betaId, $this->childId($this->json($alpha->body())['html'], 'beta'));
+
+        $beta = $app->handle($this->actionRequest(
+            $pageId,
+            $csrf,
+            1,
+            ['amount' => 1],
+            'increment',
+            $betaId,
+        ));
+        self::assertSame(200, $beta->status());
+        self::assertSame('1', $this->childOutput($this->json($beta->body())['html'], 'alpha'));
+        self::assertSame('1', $this->childOutput($this->json($beta->body())['html'], 'beta'));
+
+        self::assertSame(409, $app->handle($this->actionRequest(
+            $pageId,
+            $csrf,
+            0,
+            ['amount' => 1],
+            'increment',
+            $alphaId,
+        ))->status());
+    }
+
+    public function testNestedActionsRejectForgedAndCrossPageChildIdentities(): void
+    {
+        [$app] = $this->nestedApplication();
+        $firstPage = $app->handle(Request::fromUri('GET', '/nested'));
+        $firstId = $this->attribute($firstPage->body(), 'data-nora-page');
+        $csrf = $this->metaContent($firstPage->body(), 'nora-csrf');
+        $otherPage = $app->handle(Request::fromUri('GET', '/nested'));
+        $foreignChildId = $this->childId($otherPage->body(), 'alpha');
+
+        self::assertSame(404, $app->handle($this->actionRequest(
+            $firstId,
+            $csrf,
+            0,
+            ['amount' => 1],
+            'increment',
+            str_repeat('f', 48),
+        ))->status());
+        self::assertSame(404, $app->handle($this->actionRequest(
+            $firstId,
+            $csrf,
+            0,
+            ['amount' => 1],
+            'increment',
+            $foreignChildId,
+        ))->status());
+    }
+
+    public function testNestedChildAuthorizationIsCheckedBeforeStateMutation(): void
+    {
+        [$app, , $child] = $this->nestedApplication(false);
+        $page = $app->handle(Request::fromUri('GET', '/nested'));
+        $response = $app->handle($this->actionRequest(
+            $this->attribute($page->body(), 'data-nora-page'),
+            $this->metaContent($page->body(), 'nora-csrf'),
+            0,
+            ['amount' => 1],
+            'increment',
+            $this->childId($page->body(), 'alpha'),
+        ));
+
+        self::assertSame(403, $response->status());
+        self::assertSame(0, $child->transitionCalls());
+    }
+
+    public function testRemovedNestedChildrenAreDisposedAndCannotBeReused(): void
+    {
+        [$app, , $child] = $this->nestedApplication();
+        $page = $app->handle(Request::fromUri('GET', '/nested'));
+        $pageId = $this->attribute($page->body(), 'data-nora-page');
+        $csrf = $this->metaContent($page->body(), 'nora-csrf');
+        $removedId = $this->childId($page->body(), 'beta');
+
+        $updated = $app->handle($this->actionRequest($pageId, $csrf, 0, [], 'hide-second'));
+        $html = $this->json($updated->body())['html'];
+        self::assertSame(200, $updated->status());
+        self::assertStringNotContainsString('data-nora-child-key="beta"', $html);
+        self::assertContains($removedId, $child->disposedIds());
+        self::assertSame(404, $app->handle($this->actionRequest(
+            $pageId,
+            $csrf,
+            1,
+            ['amount' => 1],
+            'increment',
+            $removedId,
+        ))->status());
+    }
+
     /**
      * @return array{Application, ReactiveEngine, IntegrationCounterComponent}
      */
@@ -355,6 +473,22 @@ final class ReactiveLifecycleTest extends TestCase
     }
 
     /**
+     * @return array{Application, IntegrationParentComponent, IntegrationChildComponent}
+     */
+    private function nestedApplication(?bool $authorized = true): array
+    {
+        $parent = new IntegrationParentComponent();
+        $child = new IntegrationChildComponent($authorized);
+        $engine = new ReactiveEngine(new SessionManager(false));
+        $engine->register('nested-page', $parent);
+        $engine->register('nested-counter', $child);
+        $app = new Application();
+        $engine->mount($app, 'nested-page', '/nested');
+
+        return [$app, $parent, $child];
+    }
+
+    /**
      * @param array<string, mixed> $arguments
      */
     private function actionRequest(
@@ -363,8 +497,19 @@ final class ReactiveLifecycleTest extends TestCase
         int $revision,
         array $arguments,
         string $action = 'increment',
+        ?string $component = null,
     ): Request
     {
+        $payload = [
+            'page' => $page,
+            'action' => $action,
+            'revision' => $revision,
+            'arguments' => $arguments,
+        ];
+        if ($component !== null) {
+            $payload['component'] = $component;
+        }
+
         return Request::fromUri(
             'POST',
             '/_nora/action',
@@ -372,13 +517,37 @@ final class ReactiveLifecycleTest extends TestCase
                 'Content-Type' => 'application/json',
                 'X-CSRF-Token' => $csrf,
             ],
-            json_encode([
-                'page' => $page,
-                'action' => $action,
-                'revision' => $revision,
-                'arguments' => $arguments,
-            ], JSON_THROW_ON_ERROR),
+            json_encode($payload, JSON_THROW_ON_ERROR),
         );
+    }
+
+    private function childId(string $html, string $key): string
+    {
+        self::assertSame(
+            1,
+            preg_match(
+                '/<div data-nora-child-id="([a-f0-9]{48})" data-nora-child-type="nested-counter" data-nora-child-key="'
+                    . preg_quote($key, '/') . '">/',
+                $html,
+                $matches,
+            ),
+        );
+
+        return $matches[1];
+    }
+
+    private function childOutput(string $html, string $key): string
+    {
+        self::assertSame(
+            1,
+            preg_match(
+                '/<output data-nora-label="' . preg_quote($key, '/') . '">([^<]+)<\/output>/',
+                $html,
+                $matches,
+            ),
+        );
+
+        return $matches[1];
     }
 
     private function attribute(string $html, string $attribute): string
@@ -507,5 +676,133 @@ final class IntegrationCounterComponent implements ReactiveComponent
     public function transitionCalls(): int
     {
         return $this->transitionCalls;
+    }
+}
+
+/**
+ * @internal
+ */
+final class IntegrationParentComponent implements ReactiveComponent, ReactiveParentComponentInterface
+{
+    public function initialState(): array
+    {
+        return ['show_second' => true];
+    }
+
+    public function render(array $state): string
+    {
+        return '<section>'
+            . ReactiveChildDefinition::placeholder('alpha')
+            . ($state['show_second'] ? ReactiveChildDefinition::placeholder('beta') : '')
+            . '</section>';
+    }
+
+    public function actions(): array
+    {
+        return [
+            'hide-second' => ReactiveAction::publicAction(
+                [],
+                static fn (array $state): array => [...$state, 'show_second' => false],
+            ),
+        ];
+    }
+
+    public function children(array $state): array
+    {
+        $children = [
+            new ReactiveChildDefinition('alpha', 'nested-counter', ['label' => 'alpha']),
+        ];
+        if ($state['show_second']) {
+            $children[] = new ReactiveChildDefinition('beta', 'nested-counter', ['label' => 'beta']);
+        }
+
+        return $children;
+    }
+}
+
+/**
+ * @internal
+ */
+final class IntegrationChildComponent implements ReactiveNestedComponentInterface, ReactiveComponentLifecycleInterface
+{
+    private int $calls = 0;
+
+    /** @var list<string> */
+    private array $mounted = [];
+
+    /** @var list<string> */
+    private array $disposed = [];
+
+    public function __construct(private readonly ?bool $authorized = true)
+    {
+    }
+
+    public function propsRules(): array
+    {
+        return ['label' => 'required|string|max:32'];
+    }
+
+    public function initialState(array $props): array
+    {
+        return ['count' => 0];
+    }
+
+    public function render(array $state, array $props): string
+    {
+        $label = htmlspecialchars($props['label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        return '<output data-nora-label="' . $label . '">' . $state['count'] . '</output>'
+            . '<button data-nora-action="increment" data-nora-args=\'{"amount":1}\'>Increment</button>';
+    }
+
+    public function actions(): array
+    {
+        return [
+            'increment' => new ReactiveAction(
+                ['amount' => 'required|integer|min:1|max:5'],
+                function (array $state): array {
+                    $this->calls++;
+
+                    return ['count' => $state['count'] + 1];
+                },
+                fn (): bool => $this->authorized === true,
+            ),
+        ];
+    }
+
+    public function children(array $state, array $props): array
+    {
+        return [];
+    }
+
+    public function mounted(string $identity, array $props, array $state): void
+    {
+        $this->mounted[] = $identity;
+    }
+
+    public function disposed(string $identity, array $props, array $state): void
+    {
+        $this->disposed[] = $identity;
+    }
+
+    public function transitionCalls(): int
+    {
+        return $this->calls;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function disposedIds(): array
+    {
+        return $this->disposed;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function mountedIds(): array
+    {
+        return $this->mounted;
     }
 }

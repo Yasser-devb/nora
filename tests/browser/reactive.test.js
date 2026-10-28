@@ -170,6 +170,271 @@ test('generated app renders and securely updates its reactive counter without na
     }
 });
 
+test('nested reactive children keep independent state and reject stale, forged, and unauthorized actions', async () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'nora-nested-reactive-browser-'));
+    let browser;
+    let server;
+    let serverOutput = '';
+
+    try {
+        const autoload = path.join(repositoryRoot, 'vendor', 'autoload.php').replace(/\\/g, '/');
+        const source = `<?php
+require ${JSON.stringify(autoload)};
+
+$child = new class implements \\Nora\\Reactive\\ReactiveNestedComponentInterface {
+    public function propsRules(): array {
+        return ['label' => 'required|string|max:16', 'allowed' => 'required|boolean'];
+    }
+    public function initialState(array $props): array {
+        return ['count' => 0, 'allowed' => $props['allowed']];
+    }
+    public function render(array $state, array $props): string {
+        $label = htmlspecialchars($props['label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return '<output data-label="' . $label . '">' . $state['count'] . '</output>'
+            . '<button data-nora-action="increment" data-nora-args=\\'{"amount":1}\\'>Increment</button>';
+    }
+    public function actions(): array {
+        return ['increment' => new \\Nora\\Reactive\\ReactiveAction(
+            ['amount' => 'required|integer|min:1|max:1'],
+            static fn (array $state): array => [...$state, 'count' => $state['count'] + 1],
+            static fn (array $state): bool => $state['allowed'],
+        )];
+    }
+    public function children(array $state, array $props): array { return []; }
+};
+
+$parent = new class implements \\Nora\\Reactive\\ReactiveComponent, \\Nora\\Reactive\\ReactiveParentComponentInterface {
+    public function initialState(): array { return []; }
+    public function render(array $state): string {
+        $name = htmlspecialchars($state['name'] ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return '<form data-nora-form data-nora-action="save" data-nora-success="Profile saved" method="post" action="/profile">'
+            . '<label>Name <input name="name" data-nora-field="name"></label>'
+            . '<label>Email <input name="email" data-nora-field="email"></label>'
+            . '<label>Password <input type="password" name="password" data-nora-field="password"></label>'
+            . '<button type="submit">Save</button></form>'
+            . '<output data-saved-name>' . $name . '</output>'
+            . \\Nora\\Reactive\\ReactiveChildDefinition::placeholder('alpha')
+            . \\Nora\\Reactive\\ReactiveChildDefinition::placeholder('beta');
+    }
+    public function actions(): array {
+        return ['save' => \\Nora\\Reactive\\ReactiveAction::publicAction(
+            [
+                'name' => 'required|string|max:40',
+                'email' => 'required|email',
+                'password' => 'required|string|min:8',
+            ],
+            static fn (array $state, array $arguments): array => [
+                ...$state,
+                'name' => $arguments['name'],
+                'email' => $arguments['email'],
+                'password_set' => true,
+            ],
+        )];
+    }
+    public function children(array $state): array {
+        return [
+            new \\Nora\\Reactive\\ReactiveChildDefinition('alpha', 'child', ['label' => 'alpha', 'allowed' => true]),
+            new \\Nora\\Reactive\\ReactiveChildDefinition('beta', 'child', ['label' => 'beta', 'allowed' => false]),
+        ];
+    }
+};
+
+$session = new \\Nora\\Security\\SessionManager(false);
+$engine = new \\Nora\\Reactive\\ReactiveEngine($session);
+$engine->register('page', $parent)->register('child', $child);
+$app = new \\Nora\\Core\\Application();
+$engine->mount($app, 'page', '/');
+$app->run();
+`;
+        fs.writeFileSync(path.join(workspace, 'index.php'), source);
+        fs.writeFileSync(
+            path.join(workspace, 'router.php'),
+            "<?php\nrequire __DIR__ . '/index.php';\n",
+        );
+        const port = await availablePort();
+        server = spawn(
+            process.env.PHP_BINARY || 'php',
+            ['-S', `127.0.0.1:${port}`, '-t', workspace, 'router.php'],
+            { cwd: workspace, stdio: ['ignore', 'pipe', 'pipe'] }
+        );
+        server.stdout.setEncoding('utf8').on('data', chunk => { serverOutput += chunk; });
+        server.stderr.setEncoding('utf8').on('data', chunk => { serverOutput += chunk; });
+        const url = `http://127.0.0.1:${port}/`;
+        await waitForServer(url, server, () => serverOutput);
+
+        browser = await chromium.launch({ headless: true });
+        const page = await browser.newPage();
+        const observedRequests = [];
+        const actionStatuses = [];
+        page.on('request', request => observedRequests.push(request.url()));
+        page.on('response', resource => {
+            if (resource.url().endsWith('/_nora/action')) {
+                actionStatuses.push(resource.status());
+            }
+        });
+        const runtimeResponses = [];
+        page.on('response', resource => {
+            if (resource.url().endsWith('/_nora/runtime.js')) {
+                runtimeResponses.push(resource.status());
+            }
+        });
+        page.on('console', message => {
+            if (message.type() === 'error') {
+                serverOutput += `\nBrowser console: ${message.text()}`;
+            }
+        });
+        const response = await page.goto(url, { waitUntil: 'networkidle' });
+        assert.equal(response.status(), 200);
+        assert.ok(observedRequests.some(request => request.endsWith('/_nora/runtime.js')), serverOutput);
+        assert.deepEqual(runtimeResponses, [200]);
+        const alpha = page.locator('[data-nora-child-key="alpha"]');
+        const beta = page.locator('[data-nora-child-key="beta"]');
+        const alphaIdentity = await alpha.getAttribute('data-nora-child-id');
+        const betaIdentity = await beta.getAttribute('data-nora-child-id');
+        assert.match(alphaIdentity, /^[a-f0-9]{48}$/);
+        assert.match(betaIdentity, /^[a-f0-9]{48}$/);
+        assert.notEqual(alphaIdentity, betaIdentity);
+
+        const firstAction = page.waitForResponse(
+            response => response.url().endsWith('/_nora/action'),
+            { timeout: 5000 },
+        ).catch(async error => {
+            throw new Error(
+                `${error.message}; observed requests=${JSON.stringify(observedRequests)}; `
+                + `button=${await alpha.locator('button').getAttribute('data-nora-action')}; `
+                + `status=${await page.locator('[data-nora-status]').textContent()}; `
+                + `page=${await page.content()}; logs=${serverOutput}`,
+            );
+        });
+        await alpha.getByRole('button', { name: 'Increment' }).click();
+        const firstActionResponse = await firstAction;
+        assert.equal(firstActionResponse.status(), 200, await firstActionResponse.text());
+        await page.waitForFunction(() =>
+            document.querySelector('[data-label="alpha"]').textContent === '1'
+        );
+        assert.equal(await page.locator('[data-label="beta"]').textContent(), '0');
+        assert.equal(await alpha.getAttribute('data-nora-child-id'), alphaIdentity);
+
+        const pageId = await page.locator('[data-nora-root]').getAttribute('data-nora-page');
+        const csrf = await page.locator('meta[name="nora-csrf"]').getAttribute('content');
+        const staleStatus = await page.evaluate(async ({ pageId, csrf, alphaIdentity }) => {
+            const response = await fetch('/_nora/action', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+                body: JSON.stringify({
+                    page: pageId,
+                    action: 'increment',
+                    revision: 0,
+                    arguments: { amount: 1 },
+                    component: alphaIdentity
+                })
+            });
+            return response.status;
+        }, { pageId, csrf, alphaIdentity });
+        assert.equal(staleStatus, 409);
+
+        const forgedResponse = page.waitForResponse(resource => resource.url().endsWith('/_nora/action'));
+        await alpha.evaluate(element => {
+            element.dataset.noraChildId = 'f'.repeat(48);
+            element.querySelector('button').click();
+        });
+        assert.equal((await forgedResponse).status(), 404);
+        assert.equal(await page.locator('[data-label="alpha"]').textContent(), '1');
+        assert.equal(await page.locator('[data-label="beta"]').textContent(), '0');
+
+        await page.locator('[data-nora-status]').evaluate(status => { status.textContent = ''; });
+        const unauthorizedResponse = page.waitForResponse(resource => resource.url().endsWith('/_nora/action'));
+        await beta.getByRole('button', { name: 'Increment' }).click();
+        assert.equal((await unauthorizedResponse).status(), 403);
+        assert.equal(await page.locator('[data-label="beta"]').textContent(), '0');
+        assert.deepEqual(actionStatuses, [200, 409, 404, 403]);
+        assert.equal(await beta.getAttribute('data-nora-child-id'), betaIdentity);
+
+        let holdNextAction = false;
+        let failNextAction = false;
+        await page.route('**/_nora/action', async route => {
+            if (failNextAction) {
+                failNextAction = false;
+                await route.abort();
+                return;
+            }
+            if (holdNextAction) {
+                holdNextAction = false;
+                await delay(150);
+            }
+            await route.continue();
+        });
+        const form = page.locator('form[data-nora-form]');
+        await form.locator('[name="name"]').fill('Amina');
+        await form.locator('[name="email"]').fill('not-an-email');
+        await form.locator('[name="password"]').fill('private-passphrase');
+        holdNextAction = true;
+        const invalidFormResponse = page.waitForResponse(resource => resource.url().endsWith('/_nora/action'));
+        await form.locator('[name="password"]').press('Enter');
+        await page.waitForFunction(() => {
+            const form = document.querySelector('form[data-nora-form]');
+            return form?.dataset.noraState === 'pending' && form.hasAttribute('aria-busy');
+        });
+        const invalidResponse = await invalidFormResponse;
+        assert.equal(invalidResponse.status(), 422);
+        const invalidBody = await invalidResponse.text();
+        assert.equal(invalidBody.includes('private-passphrase'), false);
+        assert.equal(await form.locator('[name="email"]').getAttribute('aria-invalid'), 'true', invalidBody);
+        assert.notEqual(await form.locator('[data-nora-form-summary]').count(), 0);
+        assert.equal(await form.evaluate(element => element.dataset.noraState), 'invalid');
+        assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('name')), 'email');
+
+        await form.locator('[name="email"]').fill('amina@example.test');
+        const validFormResponse = page.waitForResponse(resource => resource.url().endsWith('/_nora/action'));
+        await form.locator('[name="email"]').press('Enter');
+        const validResponse = await validFormResponse;
+        assert.equal(validResponse.status(), 200);
+        const validBody = await validResponse.text();
+        assert.equal(validBody.includes('private-passphrase'), false);
+        await page.waitForFunction(() => document.querySelector('[data-saved-name]').textContent === 'Amina');
+        assert.equal(await page.locator('[name="password"]').inputValue(), 'private-passphrase');
+        assert.equal(await page.locator('[name="email"]').getAttribute('aria-invalid'), null);
+        assert.equal(await page.locator('form[data-nora-form]').evaluate(element => element.dataset.noraState), 'success');
+        assert.equal(await page.locator('[data-nora-status]').textContent(), 'Profile saved');
+        assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('name')), 'email');
+
+        await form.evaluate(element => {
+            const forged = document.createElement('input');
+            forged.type = 'hidden';
+            forged.name = 'is_admin';
+            forged.dataset.noraField = 'is_admin';
+            element.append(forged);
+        });
+        const unknownFieldResponse = page.waitForResponse(resource => resource.url().endsWith('/_nora/action'));
+        await form.locator('[name="email"]').press('Enter');
+        const unknownResponse = await unknownFieldResponse;
+        assert.equal(unknownResponse.status(), 422);
+        assert.equal((await unknownResponse.text()).includes('is_admin'), false);
+        assert.equal(await page.locator('[data-saved-name]').textContent(), 'Amina');
+        await form.locator('[name="is_admin"]').evaluate(field => field.remove());
+
+        failNextAction = true;
+        const failedFormRequest = page.waitForRequest(resource => resource.url().endsWith('/_nora/action'));
+        await form.locator('[name="email"]').press('Enter');
+        await failedFormRequest;
+        await page.waitForFunction(() => document.querySelector('form[data-nora-form]')?.dataset.noraState === 'failed');
+        assert.match(await page.locator('[data-nora-status]').textContent(), /connection failed/i);
+    } finally {
+        if (browser) {
+            await browser.close();
+        }
+        if (server && server.exitCode === null) {
+            server.kill();
+            await Promise.race([
+                new Promise(resolve => server.once('exit', resolve)),
+                delay(3000)
+            ]);
+        }
+        fs.rmSync(workspace, { recursive: true, force: true });
+    }
+});
+
 async function availablePort() {
     const listener = net.createServer();
     await new Promise((resolve, reject) => {

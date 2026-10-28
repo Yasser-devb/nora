@@ -1,6 +1,6 @@
 # Nora Implementation Status
 
-**Updated:** 2026-10-27
+**Updated:** 2026-10-28
 
 | Area | Status | Evidence / limitation |
 |---|---|---|
@@ -10,15 +10,17 @@
 | Configuration and `.env` loading | Implemented, tested | Layer precedence, required/type checks, process-variable precedence |
 | Exception handling/logging | Implemented, tested | Safe response mapping and structured redaction tests |
 | Validation | Implemented, tested | Unit tests for built-in/custom rules and nested fields |
-| PDO/query/migrations | Implemented, unit tested | PDO doubles; `pdo_mysql` is enabled locally, but no MySQL/MariaDB server is listening on localhost:3306 |
+| PDO/query/migrations/diagnostics | Implemented, unit tested | CRUD builders, nested savepoints, migration tracking, and opt-in query diagnostics; PDO doubles locally, live MySQL/MariaDB effects remain unverified |
 | CLI | Implemented, tested | Help/version, scaffold, generators, safe overwrite behavior; `serve` delivered a clean generated reactive app |
-| Sessions/auth/authorization/CSRF | Implemented, tested | Unit and security integration tests; no account provider or rate limiter |
+| Sessions/auth/authorization/CSRF | Implemented, tested | Unit and security integration tests; authentication provider/account lifecycle is not included |
+| Rate limiting | Experimental, opt-in | File-backed fixed-window store and middleware have unit coverage; single-host/shared-filesystem locking and deployment permissions require verification |
+| Upload intake and private storage | Partial, unit tested | Bounded PHP upload validation, MIME policy, private local storage, and authorization-before-read; live multipart behavior, deployment ACLs, metadata, and large-file streaming remain unverified |
 | View rendering | Implemented, tested | Escaped values, includes, path/cycle guards |
-| Reactive UI prototype | Experimental, tested | Authorization callback omission denies by default; `ReactiveAction::publicAction()` is explicit public opt-in. PHP regressions verify missing/denied policies do not invoke transitions, authorized policy succeeds, and strict action/payload validation rejects forged input. Browser tests still cover the generated allow/deny/invalid-action flow. One page component only; no nested reactive components or independent shared-state protocol |
-| Nora website example | Implemented, tested locally | Standalone Nora app under `examples/nora-website`; ten content routes, native responsive navigation, escaped 404, safe branded exception responses, an interactive homepage counter, and a tested experimental playground. No deployment/public URL is claimed |
+| Reactive UI prototype | Experimental, tested | Explicit authorization, CSRF/revision checks, nested component identities/state, and opt-in validated forms have PHP and local Chromium coverage; API remains unstable and is not production certified |
+| Nora website example | Excluded from framework release | Local standalone project remains on disk; its implementation and website-specific tests are not part of the framework source tree or Composer package |
 | Architecture documentation | Implemented | Current component/flow docs; diagrams describe current behavior |
 | CI | Workflow tracked; hosted execution not verified | The workflow includes PHP tests, audits, browser tests, and an ephemeral MySQL 8.4 service. No hosted Actions run is verified by this status |
-| Open-source governance | Partially prepared | Framework code is MIT-licensed and the root copyright notice names Morave Technologies, as confirmed by the maintainer. The website example and VS Code extension have separate license declarations. Private security reporting and branch protection need platform setup |
+| Open-source governance | Partially prepared | Framework code is MIT-licensed and the root copyright notice names Morave Technologies, as confirmed by the maintainer. The separate extension declares `UNLICENSED`; private security reporting and branch protection need platform setup |
 | Project comparison | Scoped research documented | GitHub search surfaced Moroccan PHP community, integration package, and Laravel application examples; review is not exhaustive and supports no “first” claim |
 | AI integration | Planned | No provider/tool runtime exists |
 | Linux web-server deployment | Unverified | No Linux, Apache, or Nginx environment used |
@@ -27,30 +29,23 @@
 
 ## Verification run locally
 
-- Windows environment: PHP 8.2.34 (64-bit), Node 24.20.0, npm 11.19.0;
-  `PDO` and `pdo_mysql` are enabled.
-- `composer test -- --display-warnings`: **PASS**, 72 tests and 289
-  assertions; **SKIPPED**, one live MySQL test because `NORA_TEST_DSN` was
-  unset. Existing PDO unit tests ran. The new fallback/error response tests
-  are included.
-- `php -l` over PHP files in `src`, `tests`, `bin`, and the website app: **PASS**
-  (64 PHP files/scripts, including `bin/nora`).
-- `composer validate --strict`: **PASS** for the root and website manifests.
-- `composer audit`: **PASS** for the root and website dependencies; no
-  advisories reported.
-- `node --check tests/browser/nora-website.test.js` and
-  `node --check resources/reactive/runtime.js`: **PASS**.
-- `npm audit`: **PASS**, zero vulnerabilities.
+- Windows environment: PHP 8.2.34, Node 24.20.0, npm 11.19.0; `PDO`,
+  `pdo_mysql`, and `zip` are enabled.
+- `composer validate --strict`: **PASS**.
+- `composer audit`: **PASS**, no advisories reported.
+- `composer test -- --display-warnings`: **PASS**, 120 tests and 527
+  assertions; **4 SKIPPED**. Two MySQL integration tests require a dedicated
+  `NORA_TEST_DSN`; Windows could not enforce the tested directory permission
+  change and did not permit creating the symlink needed by two platform
+  capability tests.
+- PHP syntax checks over changed and new framework PHP files and
+  `node --check` over the reactive runtime and browser test: **PASS**.
 - `npm run test:browser`: **PASS**, two Playwright Chromium scenarios against
-  a clean generated app and the Nora website, served by PHP's Windows
-  development server.
-- Local Markdown link verification: **PASS**, 30 Markdown files and 56 local
-  links checked with no missing targets.
-- GitHub Actions: **NO PASSING HOSTED RUN VERIFIED IN THIS STATUS UPDATE**.
-  `.github/workflows/ci.yml` is tracked in the repository and configures PHP,
-  browser, extension-validation, audit, and disposable MySQL 8.4 checks. This
-  status does not establish whether the current hosted workflow has run or
-  passed; no hosted result should be inferred from local configuration.
+  clean generated applications.
+- GitHub Actions: **NO PASSING HOSTED RUN VERIFIED**. Workflow configuration
+  does not establish hosted execution or a successful result.
+- Independent security review: **NOT PERFORMED**; the planned review remains a
+  release gate. Passing automated checks are not a security certification.
 - Nora Framework's code is distributed under MIT; the root `LICENSE` notice
   reads `Copyright (c) 2026 Morave Technologies`, as confirmed by the
   maintainer. The website example and VS Code extension retain separate
@@ -58,10 +53,9 @@
 - Private vulnerability reporting and branch protection have not been
   verified through repository settings. Issue and pull request templates,
   contribution guidance, and the security policy exist.
-- Reactive UI support is experimental and unstable. The browser test exercises
-  one Chromium version only. There are no independent nested components,
-  cross-component state ownership, reactive forms, navigation, automatic
-  retries, persistent transport, or formal browser support matrix.
+- Reactive UI support is experimental and unstable. Browser tests exercise one
+  Chromium version only. Navigation/history, automatic retries, persistent
+  transport, and a formal browser support matrix are not provided.
 - Generated project: the test runs `nora new`, installs its Composer path
   dependency, serves it with PHP's development server, and drives the real
   rendered page in Chromium.
@@ -120,59 +114,32 @@
   unexpected errors; keep `APP_DEBUG=false` in production. Custom validation
   rules and error messages are application-controlled and must not disclose
   secrets.
-- The framework has no independent security audit, account provider, general
-  rate limiter, deployment hardening guide, or durable idempotency guarantee
-  for external effects. Automated checks are not a security certification.
+- The framework has no independent security audit, account provider, or durable
+  idempotency guarantee for external effects. File-backed rate limiting is
+  opt-in and upload support is partial; deployment hardening and permissions
+  remain application/operator responsibilities. Automated checks are not a
+  security certification.
 - License: Nora Framework's code is distributed under MIT, and the root
   copyright notice names Morave Technologies as confirmed by the maintainer.
-  The website example and VS Code extension retain separate license
-  declarations that need independent scope review.
+  The website example and VS Code extension are separate projects and are not
+  relicensed by the framework license. The local extension manifest declares
+  `UNLICENSED`.
 - Private GitHub vulnerability reporting is **NOT VERIFIED**; no dedicated
   monitored contact is configured. Repository branch/tag protection and
   permission settings are also **NOT VERIFIED**.
 
-## Nora website example
+## Excluded local website example
 
-The separate application at `examples/nora-website` is implemented with
-Nora's `ApplicationBootstrap`, routing and 404 fallback, safe HTML responses,
-escaped `.nora` templates, and an experimental `ReactiveEngine` component.
-It serves the requested overview, feature, documentation, architecture,
-playground, examples, roadmap, changelog, community, and contact routes. The
-homepage itself is a reactive page with PHP action source, live increment/reset
-controls, a three-step workflow explanation, and a verified capability status
-table. Its counter is session-owned and explicitly public to the page holder.
-The playground demonstrates one explicitly public counter action, server-validated
-arguments, an explicitly denied protected action, and a server-authorized tab
-selection. Unexpected request exceptions use Nora's centralized logger and a
-safe branded response factory; user-controlled exception details are not
-rendered.
-
-The website's browser scenario checks all ten content routes, native mobile
-navigation and horizontal overflow, desktop navigation, security response
-headers, a branded escaped 404 and safe branded 500 regression, homepage
-runtime loading and the PHP counter's increment/reset without navigation, and
-the playground's successful updates, retained focus, invalid arguments (422),
-denied action (403), and unregistered action (404) without state mutation. It
-also checks that the website loads no third-party assets. This app has no text
-input, so it does not claim to test input-value or selection preservation.
-Reactive forms,
-field-level errors, navigation, auth identity, nested components, and shared
-state remain unimplemented. Static pages use a local stylesheet and do not
-depend on external frontend frameworks, fonts, or CDNs. The site has no
-configured contact form/service; its license and GitHub security-reporting
-statements remain pending/qualified as noted above.
-
-The verification results above include the website changes and were run on
-Windows with PHP 8.2.34 / Node 24.20.0. The sample app's input-value,
-selection, and keyed-node preservation checks remain covered by its separate
-browser scenario; the website playground has no text inputs.
+The standalone website example and its website-specific tests remain available
+in the local workspace but are excluded from the public framework repository.
+They are not required to install or test the framework core.
 
 ## Reactive UI acceptance checklist
 
 | Criterion | Result | Test evidence |
 |---|---|---|
-| PHP component renders correctly | PASS | Generated Chromium page asserts heading and keyed sections; website test asserts PHP-rendered hero, action preview, and live counter |
-| Nora runtime loads automatically | PASS | Mounted HTML script element and runtime asset HTTP 200 asserted on both generated app and website home |
+| PHP component renders correctly | PASS | Generated-app Chromium scenarios assert rendered keyed sections and nested component output |
+| Nora runtime loads automatically | PASS | Generated-app scenarios assert runtime asset HTTP 200 |
 | Declared browser event invokes an explicitly registered PHP action | PASS | Click sends POST, registered `increment` updates output; tampered action gets 404 |
 | Server validates request and checks authorization | PASS | Browser receives 422 for invalid amount and 403 at the sample authorization limit |
 | Component state changes and relevant DOM updates | PASS | Both outputs update from 0 to 10 through PHP-rendered responses |

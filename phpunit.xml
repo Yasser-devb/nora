@@ -7,6 +7,7 @@
         </testsuite>
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
+            <exclude>tests/Integration/NoraWebsiteErrorPageTest.php</exclude>
         </testsuite>
         <testsuite name="Security">
             <directory>tests/Security</directory>

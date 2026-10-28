@@ -8,6 +8,18 @@ permissions:
   contents: read
 
 jobs:
+  package-consumer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, zip
+          coverage: none
+      - name: Verify the Composer archive in an isolated consumer
+        run: php .github/scripts/verify-package-archive.php
+
   test:
     runs-on: ubuntu-latest
     services:
@@ -17,10 +29,10 @@ jobs:
           # Disposable CI-only credentials; never use these outside this job.
           MYSQL_ROOT_PASSWORD: nora_ci_root_password
           MYSQL_DATABASE: nora_test
-          MYSQL_USER: nora_test_user
-          MYSQL_PASSWORD: nora_ci_test_password
         ports:
           - 3306:3306
+        volumes:
+          - ${{ github.workspace }}/.github/mysql-init:/docker-entrypoint-initdb.d:ro
         options: >-
           --health-cmd="mysqladmin ping --host=127.0.0.1 --user=root --password=nora_ci_root_password --silent"
           --health-interval=10s
@@ -28,8 +40,10 @@ jobs:
           --health-retries=10
     env:
       NORA_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=nora_test;charset=utf8mb4
+      NORA_TEST_DB_NAME: nora_test
       NORA_TEST_DB_USERNAME: nora_test_user
       NORA_TEST_DB_PASSWORD: nora_ci_test_password
+      NORA_REQUIRE_TEST_DB: '1'
     strategy:
       fail-fast: false
       matrix:
@@ -70,8 +84,6 @@ jobs:
           cache: npm
       - run: composer install --no-interaction --prefer-dist
       - run: npm ci
-      - name: Validate Nora VS Code extension
-        run: npm --prefix extensions/vscode-nora run validate
       - run: npm audit
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser

@@ -128,15 +128,6 @@ and runs the HTTP lifecycle. Process environment values take precedence over
 environment values override both. A route registration closure can read the
 validated config through `$app->config()`.
 
-## Nora's website example
-
-The project website exists as a real Nora application in
-[examples/nora-website](examples/nora-website/README.md). Its homepage
-demonstrates a server-rendered reactive counter, and the application exercises
-Nora's routing, escaped templates, HTTP responses, and safe 404/error
-handling. The reactive API is experimental; the website is a local example,
-not a deployed public site or a production-readiness claim.
-
 The config files return arrays, for example:
 
 ```php
@@ -241,19 +232,22 @@ default. Actions intentionally public to a valid page holder must use
 `ReactiveAction::publicAction(...)`. The runtime applies server-rendered
 updates without a full-page navigation, using keyed DOM reconciliation.
 
-This is an experimental, early vertical slice—not a stable API or a production
-readiness claim. The generated counter denies increments once its count reaches
-10 as a demonstration of action authorization; real applications must define
-their own authorization policies. It does not provide reactive forms,
-independent nested component state or cross-component state ownership,
-navigation/history, offline support, automatic retries, uploads, or persistent
-real-time transport. Component `render()` output is trusted PHP-authored
-markup; escape dynamic data with `TemplateRenderer`.
+This is experimental and not a stable API or a production-readiness claim.
+Opt-in nested components have validated props, isolated session state,
+server-issued identities, lifecycle callbacks, and page revision checks.
+Opt-in forms bind explicitly named controls to server-validated actions and
+display accessible field errors; file controls and multiple-selects are not
+supported, and a non-JavaScript POST route remains application-owned.
+Navigation/history, offline support, automatic retries, and persistent
+real-time transport are not provided. Component `render()` output is trusted
+PHP-authored markup; escape dynamic data with `TemplateRenderer`.
 Read the [reactive engine specification](architecture/REACTIVE_UI_ENGINE.md)
-for the security model and implemented/planned boundary. The local Chromium test covers the generated page, runtime load, allowed and
-rejected actions, no-navigation updates, and preservation of compatible input
-values, focus, and selection. See the [implementation status](docs/audit/IMPLEMENTATION_STATUS.md)
-for exact verification results and unverified areas.
+for the security model, form contract, and implemented/planned boundary.
+Local Chromium tests cover the generated page and nested components, along
+with allowed, invalid, stale, forged, and unauthorized actions, reactive form
+feedback, and preservation of compatible input values and focus. See the
+[implementation status](docs/audit/IMPLEMENTATION_STATUS.md) for verification
+results and unverified areas.
 
 Run the browser integration test after installing the Node development
 dependencies and Chromium:
@@ -282,8 +276,8 @@ $rows = $db->select(
 ```
 
 Values use prepared statements. Identifiers and operators in `QueryBuilder`
-are allowlisted; the builder currently supports SELECT queries. `PdoConnection`
-provides transaction, fetch, and execute helpers. Migrations return a
+are allowlisted; it supports SELECT, INSERT, UPDATE, and DELETE queries.
+`PdoConnection` provides transaction, fetch, and execute helpers. Migrations return a
 `MigrationInterface` from files named `YYYY_description.php`; `migrate` and
 `migrate:status` require `NORA_DSN`. MySQL DDL may auto-commit, so a migration
 that fails after DDL can require manual repair. PDO unit tests use test
@@ -310,8 +304,10 @@ keep secure cookies enabled in production.
 authorization. `CsrfMiddleware` protects unsafe methods when explicitly
 registered for browser/session-backed routes; it accepts `X-CSRF-Token` or a
 form `_csrf` field. Do not apply browser CSRF assumptions indiscriminately to
-stateless APIs. Authentication providers, rate limiting, file-upload
-protection, and a complete account lifecycle are not included.
+stateless APIs. Rate limiting is opt-in and file-backed; upload intake and
+private local storage are partial APIs requiring deployment-level limits and
+permissions. Authentication providers and a complete account lifecycle are
+not included.
 
 ## CLI
 
@@ -346,19 +342,19 @@ validation, PDO query binding and migration tracking logic, CLI generation and
 commands, session/authentication integration, authorization, CSRF, and
 escaped template rendering.
 
-Still incomplete or unverified: production-grade reactive forms, independent
-nested component state, navigation and robust recovery; real MySQL/MariaDB
-connection/migration runs, rate limiting, full authentication/account
-workflows, file uploads, controller
-dispatch conventions, route groups/URL generation, production deployment,
-independent security review, performance benchmarks, and optional AI
-integration. Do not treat passing tests as a security certification.
+Still incomplete or unverified: real MySQL/MariaDB connection/migration runs,
+full authentication/account workflows, upload deployment and streaming
+behavior, controller dispatch conventions, route groups/URL generation,
+production deployment, independent security review, performance benchmarks,
+cross-browser reactive behavior, and optional AI integration. Reactive UI
+and rate limiting are experimental; upload support is partial. Do not treat
+passing tests as a security certification.
 
 ## Project, governance, and documentation
 
 - [Nora Template VS Code extension](extensions/vscode-nora/README.md) —
-  local development and VSIX instructions; Marketplace publication is not
-  verified.
+  public-facing information; the extension implementation is separate, and
+  Marketplace publication is not verified.
 - [Project positioning and scoped comparison](docs/PROJECT_POSITIONING.md)
 - [Roadmap](docs/ROADMAP.md)
 - [First application tutorial](docs/tutorials/FIRST_APPLICATION.md)

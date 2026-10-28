@@ -2,6 +2,7 @@
     'use strict';
 
     const rootSelector = '[data-nora-root]';
+    let formErrorSequence = 0;
 
     function findRoot(element) {
         return element && typeof element.closest === 'function' ? element.closest(rootSelector) : null;
@@ -144,19 +145,127 @@
         window.scrollTo(beforeX, beforeY);
     }
 
-    async function dispatch(root, control) {
+    function clearFormErrors(form) {
+        form.querySelectorAll('[data-nora-field-error], [data-nora-form-summary]').forEach(node => node.remove());
+        form.querySelectorAll('[data-nora-field]').forEach(field => {
+            field.removeAttribute('aria-invalid');
+            const errorId = field.dataset.noraErrorId;
+            if (errorId) {
+                const describedBy = (field.getAttribute('aria-describedby') || '')
+                    .split(/\s+/)
+                    .filter(value => value && value !== errorId);
+                if (describedBy.length) {
+                    field.setAttribute('aria-describedby', describedBy.join(' '));
+                } else {
+                    field.removeAttribute('aria-describedby');
+                }
+                delete field.dataset.noraErrorId;
+            }
+        });
+    }
+
+    function showFormErrors(form, errors) {
+        clearFormErrors(form);
+        const summary = document.createElement('div');
+        summary.dataset.noraFormSummary = '';
+        summary.setAttribute('role', 'alert');
+        summary.setAttribute('tabindex', '-1');
+        summary.textContent = 'Please correct the highlighted fields.';
+        form.prepend(summary);
+
+        let firstInvalid = null;
+        if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
+            for (const field of form.querySelectorAll('[data-nora-field]')) {
+                const name = field.getAttribute('name');
+                const fieldErrors = name && Array.isArray(errors[name]) ? errors[name] : null;
+                if (!fieldErrors || fieldErrors.length === 0) {
+                    continue;
+                }
+                const error = document.createElement('span');
+                error.id = `nora-field-error-${++formErrorSequence}`;
+                error.dataset.noraFieldError = '';
+                error.setAttribute('role', 'alert');
+                error.textContent = fieldErrors.filter(message => typeof message === 'string').join(' ');
+                field.insertAdjacentElement('afterend', error);
+                field.setAttribute('aria-invalid', 'true');
+                const describedBy = (field.getAttribute('aria-describedby') || '')
+                    .split(/\s+/)
+                    .filter(Boolean);
+                field.setAttribute('aria-describedby', [...describedBy, error.id].join(' '));
+                field.dataset.noraErrorId = error.id;
+                firstInvalid ||= field;
+            }
+        }
+        firstInvalid?.focus({ preventScroll: true });
+
+        return summary.textContent;
+    }
+
+    function collectFormArguments(form) {
+        const values = {};
+        for (const field of form.querySelectorAll('[data-nora-field]')) {
+            if (!(field instanceof HTMLInputElement
+                || field instanceof HTMLSelectElement
+                || field instanceof HTMLTextAreaElement)) {
+                throw new Error('The form field binding is unsupported.');
+            }
+            if (field.disabled) {
+                continue;
+            }
+            const name = field.getAttribute('name');
+            if (!name || field.dataset.noraField !== name) {
+                throw new Error('The form field binding is invalid.');
+            }
+            if (field instanceof HTMLInputElement && field.type === 'file') {
+                throw new Error('Reactive forms do not accept file fields.');
+            }
+            if (
+                (field instanceof HTMLInputElement
+                    && ['button', 'image', 'reset', 'submit'].includes(field.type))
+                || (field instanceof HTMLSelectElement && field.multiple)
+            ) {
+                throw new Error('The form field binding is unsupported.');
+            }
+            if (field instanceof HTMLInputElement && field.type === 'radio') {
+                if (field.checked) {
+                    values[name] = field.value;
+                }
+                continue;
+            }
+            if (Object.prototype.hasOwnProperty.call(values, name)) {
+                throw new Error('A reactive form field is bound more than once.');
+            }
+            values[name] = field instanceof HTMLInputElement && field.type === 'checkbox'
+                ? field.checked
+                : field.value;
+        }
+
+        return values;
+    }
+
+    async function dispatch(root, control, form = null) {
         if (root.dataset.noraBusy === 'true') {
             return;
         }
 
         let argumentsObject = {};
-        const encodedArguments = control.getAttribute('data-nora-args');
-        if (encodedArguments !== null) {
+        if (form) {
             try {
-                argumentsObject = JSON.parse(encodedArguments);
+                argumentsObject = collectFormArguments(form);
             } catch (_) {
-                announce(root, 'This action could not be prepared.');
+                announce(root, 'The form could not be submitted.');
+                form.dataset.noraState = 'failed';
                 return;
+            }
+        } else {
+            const encodedArguments = control.getAttribute('data-nora-args');
+            if (encodedArguments !== null) {
+                try {
+                    argumentsObject = JSON.parse(encodedArguments);
+                } catch (_) {
+                    announce(root, 'This action could not be prepared.');
+                    return;
+                }
             }
         }
         if (
@@ -171,11 +280,18 @@
         const token = document.querySelector('meta[name="nora-csrf"]')?.content;
         if (!token) {
             announce(root, 'The security token is unavailable. Reload the page.');
+            if (form) {
+                form.dataset.noraState = 'failed';
+            }
             return;
         }
 
         root.dataset.noraBusy = 'true';
         root.setAttribute('aria-busy', 'true');
+        if (form) {
+            form.dataset.noraState = 'pending';
+            form.setAttribute('aria-busy', 'true');
+        }
         announce(root, '');
         try {
             let response;
@@ -191,13 +307,19 @@
                     },
                     body: JSON.stringify({
                         page: root.dataset.noraPage,
-                        action: control.getAttribute('data-nora-action'),
+                        action: form ? form.getAttribute('data-nora-action') : control.getAttribute('data-nora-action'),
                         revision: Number(root.dataset.noraRevision),
-                        arguments: argumentsObject
+                        arguments: argumentsObject,
+                        ...((form || control).closest('[data-nora-child-id]')
+                            ? { component: (form || control).closest('[data-nora-child-id]').dataset.noraChildId }
+                            : {})
                     })
                 });
             } catch (_) {
                 announce(root, 'The connection failed. The action was not retried.');
+                if (form) {
+                    form.dataset.noraState = 'failed';
+                }
                 return;
             }
             let result;
@@ -207,6 +329,9 @@
                 announce(root, response.ok
                     ? 'The server returned an invalid reactive response.'
                     : 'The action could not be completed.');
+                if (form) {
+                    form.dataset.noraState = 'failed';
+                }
                 return;
             }
             if (typeof result.html === 'string' && Number.isInteger(result.revision)) {
@@ -214,28 +339,70 @@
                     applyUpdate(root, result.html, result.revision);
                 } catch (_) {
                     announce(root, 'The update could not be applied. Reload to synchronize.');
+                    if (form) {
+                        form.dataset.noraState = 'failed';
+                    }
                     return;
                 }
             }
             if (!response.ok) {
-                announce(root, typeof result.error === 'string'
+                const message = form && response.status === 422
+                    ? showFormErrors(form, result.errors)
+                    : (typeof result.error === 'string'
                     ? result.error
                     : 'The action could not be completed.');
+                announce(root, message);
+                if (form) {
+                    form.dataset.noraState = response.status === 422 ? 'invalid' : 'failed';
+                }
                 return;
             }
             if (typeof result.html !== 'string' || !Number.isInteger(result.revision)) {
                 announce(root, 'The server returned an invalid reactive response.');
+                if (form) {
+                    form.dataset.noraState = 'failed';
+                }
+                return;
+            }
+            if (form) {
+                clearFormErrors(form);
+                form.dataset.noraState = 'success';
+                announce(root, form.getAttribute('data-nora-success') || 'The form was submitted.');
             }
         } finally {
             delete root.dataset.noraBusy;
             root.removeAttribute('aria-busy');
+            if (form) {
+                form.removeAttribute('aria-busy');
+            }
         }
     }
+
+    document.addEventListener('submit', event => {
+        const form = event.target instanceof HTMLFormElement ? event.target : null;
+        if (!form || !form.hasAttribute('data-nora-form')) {
+            return;
+        }
+        const root = findRoot(form);
+        if (!root) {
+            return;
+        }
+        event.preventDefault();
+        void dispatch(root, form, form);
+    });
 
     document.addEventListener('click', event => {
         const target = event.target instanceof Element ? event.target : null;
         const control = target?.closest('[data-nora-action]');
         if (!control) {
+            return;
+        }
+        const form = target.closest('form[data-nora-form]');
+        if (
+            form
+            && (control === form
+                || (control instanceof HTMLButtonElement && control.type === 'submit' && control.form === form))
+        ) {
             return;
         }
         event.preventDefault();

@@ -1,6 +1,0 @@
-<section class="page-hero"><div class="container"><p class="eyebrow">EXAMPLES</p><h1>Small examples, real boundaries.</h1><p>These examples point to working framework code and mark prototypes clearly. They do not imply production readiness.</p></div></section>
-<section class="section"><div class="container example-grid">
-    <article class="example-card"><span class="status status-implemented">Implemented</span><h2>Generated starter app</h2><p>Use the Nora CLI to scaffold a minimal project with a bootable entry point, route, environment example, and local server command.</p><a href="/docs/getting-started">Follow the setup →</a></article>
-    <article class="example-card"><span class="status status-experimental">Experimental</span><h2>Server-rendered counter</h2><p>Browser events dispatch explicitly registered PHP actions. The server validates arguments and authorization before transitioning page state.</p><a href="/playground">Try the live demo →</a></article>
-    <article class="example-card"><span class="status status-planned">Planned</span><h2>Database-backed application</h2><p>PDO and migration building blocks exist; a complete walkthrough with reproducible database setup and live integration verification is still planned.</p><a href="/roadmap">View next milestones →</a></article>
-</div></section>
