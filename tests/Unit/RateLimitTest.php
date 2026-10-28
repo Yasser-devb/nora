@@ -137,16 +137,22 @@ final class RateLimitTest extends TestCase
 
     public function testMiddlewareReturns429AndRetryMetadataWhenBucketIsExhausted(): void
     {
+        $handlerCalls = 0;
         $app = new Application();
         $app->middleware(new RateLimitMiddleware(
             $this->limiter(1, 60, 120),
             static fn (Request $request): string => 'route:login',
         ));
-        $app->route('POST', '/login', static fn (): Response => Response::text('processed'));
+        $app->route('POST', '/login', static function () use (&$handlerCalls): Response {
+            $handlerCalls++;
+
+            return Response::text('processed');
+        });
 
         $app->handle(Request::fromUri('POST', '/login'));
         $response = $app->handle(Request::fromUri('POST', '/login'));
 
+        self::assertSame(1, $handlerCalls);
         self::assertSame(429, $response->status());
         self::assertSame('Too Many Requests', $response->body());
         self::assertSame('1', $response->headers()['RateLimit-Limit']);

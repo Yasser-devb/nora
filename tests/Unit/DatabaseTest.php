@@ -316,6 +316,43 @@ final class DatabaseTest extends TestCase
         }
     }
 
+    public function testMigrationRunnerUsesLexicographicalOrderForExecutionAndStatus(): void
+    {
+        $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'nora-migrations-' . bin2hex(random_bytes(5));
+        self::assertTrue(mkdir($directory));
+        $laterFile = $directory . DIRECTORY_SEPARATOR . '0001_zeta_migration.php';
+        $earlierFile = $directory . DIRECTORY_SEPARATOR . '0001_alpha_migration.php';
+        $migrationSource = static fn (string $table): string =>
+            '<?php return new class implements \\Nora\\Database\\MigrationInterface {'
+            . ' public function up(\\PDO $pdo): void { $pdo->exec("CREATE TABLE ' . $table . ' (id INT)"); }'
+            . ' public function down(\\PDO $pdo): void { $pdo->exec("DROP TABLE ' . $table . '"); }'
+            . '};';
+        file_put_contents($laterFile, $migrationSource('zeta_table'));
+        file_put_contents($earlierFile, $migrationSource('alpha_table'));
+
+        try {
+            $pdo = new RecordingPDO('mysql');
+            $runner = new MigrationRunner($pdo, $directory);
+
+            self::assertSame(
+                ['0001_alpha_migration', '0001_zeta_migration'],
+                $runner->migrate(),
+            );
+            self::assertSame(
+                ['CREATE TABLE alpha_table (id INT)', 'CREATE TABLE zeta_table (id INT)'],
+                array_slice($pdo->executed, 1),
+            );
+            self::assertSame(
+                ['0001_alpha_migration', '0001_zeta_migration'],
+                array_column($runner->status(), 'migration'),
+            );
+        } finally {
+            unlink($laterFile);
+            unlink($earlierFile);
+            rmdir($directory);
+        }
+    }
+
     public function testMigrationRunnerRejectsInvalidMigrationNames(): void
     {
         $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'nora-migrations-' . bin2hex(random_bytes(5));

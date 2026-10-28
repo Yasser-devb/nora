@@ -38,19 +38,17 @@ final class RateLimitMiddleware implements MiddlewareInterface
             return Response::text('Service Unavailable', 503);
         }
 
-        $response = $next($request)
+        if (!$result->allowed()) {
+            return Response::text('Too Many Requests', 429)
+                ->withHeader('RateLimit-Limit', (string) $result->limit())
+                ->withHeader('RateLimit-Remaining', '0')
+                ->withHeader('RateLimit-Reset', (string) $result->resetAfterSeconds())
+                ->withHeader('Retry-After', (string) $result->retryAfterSeconds());
+        }
+
+        return $next($request)
             ->withHeader('RateLimit-Limit', (string) $result->limit())
             ->withHeader('RateLimit-Remaining', (string) $result->remaining())
             ->withHeader('RateLimit-Reset', (string) $result->resetAfterSeconds());
-
-        if ($result->allowed()) {
-            return $response;
-        }
-
-        return Response::text('Too Many Requests', 429)
-            ->withHeader('RateLimit-Limit', (string) $result->limit())
-            ->withHeader('RateLimit-Remaining', '0')
-            ->withHeader('RateLimit-Reset', (string) $result->resetAfterSeconds())
-            ->withHeader('Retry-After', (string) $result->retryAfterSeconds());
     }
 }
