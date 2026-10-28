@@ -3,6 +3,16 @@
 All notable changes are recorded here. Follow the
 [release policy](RELEASE_POLICY.md) and keep entries factual.
 
+## v0.2.1 — 2026-10-28
+
+- Fix narrow-viewport overflow caused by intrinsic minimum sizing in page
+  grids, cards, and data tables while retaining horizontal scrolling inside
+  the table container.
+- Verification: `npm run test:browser` passed all four local Chromium
+  scenarios, including 375px and 1280px viewport checks. The v0.2.0 hosted
+  workflow exposed this issue on Linux; the follow-up workflow result is
+  pending.
+
 ## v0.2.0 — 2026-10-28
 
 - Add an experimental composable PHP UI API with safe HTML elements,
